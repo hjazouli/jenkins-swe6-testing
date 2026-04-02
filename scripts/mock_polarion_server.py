@@ -14,7 +14,7 @@ class PolarionMockHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(b"OK")
 
-def run_server(port=8081):
+def run_server(port=8082):
     server_address = ('', port)
     httpd = HTTPServer(server_address, PolarionMockHandler)
     print(f"Mock Polarion Server running on port {port}...")

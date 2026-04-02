@@ -5,7 +5,7 @@ from datetime import datetime
 import argparse
 
 # Updated for local mock server
-POLARION_URL = "http://localhost:8081"
+POLARION_URL = "http://localhost:8082"
 PROJECT_ID = "ECU_BRAKE_SYSTEM"
 USERNAME = "jenkins_bot"
 PASSWORD = "secure_token_here"
