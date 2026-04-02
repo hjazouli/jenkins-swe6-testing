@@ -80,3 +80,4 @@ The Jenkins pipeline is configured to automatically trigger builds **exactly** a
    - **Crucial:** Always ensure the Payload URL ends exactly with `/github-webhook/` (e.g., `https://<YOUR-NEW-URL>.lhr.life/github-webhook/`).
    - Leave the content type as `application/json` and trigger event as `Just the push event`.
 3. **Registering the Trigger in Jenkins**: If the `Jenkinsfile` was updated, remember that Jenkins needs to run the job manually *once* for it to read the new file and activate the `githubPush()` listener. After that manual run, all subsequent Git pushes will automatically trigger the pipeline.
+
