@@ -2,6 +2,8 @@ import pytest
 import can
 import time
 
+# This test file confirms basic ECU requirements (SWE_REQ_001, SWE_REQ_002)
+
 def test_brake_pressure_response(can_bus):
     """
     SWE.6 Test Case: Verify ECU responds to brake pedal signal.
