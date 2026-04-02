@@ -1,6 +1,13 @@
 pipeline {
     agent any
     
+    triggers {
+        // Trigger the build exactly after a push to GitHub via webhook
+        githubPush()
+        // Alternatively, use polling (e.g., every minute) if webhooks can't reach your local network:
+        // pollSCM('* * * * *')
+    }
+    
     environment {
         PYTHON_ENV = 'python3'
         ECU_TARGET = 'TC397'

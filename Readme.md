@@ -59,4 +59,24 @@ Tests are written in Python using `pytest` and `python-can`:
 - **Testing**: Pytest, python-can
 - **Reporting**: JUnit, HTML (pytest-html)
 - **Target**: Infineon TriCore TC397 (Mocked)
-Auto-triggered by Git Hook
+
+## 🔄 CI/CD Automation Setup (Webhooks)
+
+The Jenkins pipeline is configured to automatically trigger builds **exactly** after each code push to the GitHub repository using GitHub Webhooks.
+
+**Current Setup Overview:**
+- The `Jenkinsfile` is configured with the `githubPush()` trigger.
+- Jenkins runs locally on `http://localhost:8081`. To allow GitHub to send webhook notifications to this local instance, a secure SSH tunnel is required.
+- **Tunneling Tool:** `localhost.run` (Uses native macOS SSH, no sign-up or installation required).
+
+**Instructions for the Next AI Agent / Developer:**
+1. **Re-establishing the Tunnel**: If the terminal running the tunnel is closed, the tunnel URL will drop. To start a new tunnel, run:
+   ```bash
+   ssh -R 80:localhost:8081 nokey@localhost.run
+   ```
+2. **Updating the GitHub Webhook**: Because `localhost.run` generates a new random domain each time it runs (e.g., `https://6c993e876fa5de.lhr.life`), any time the tunnel is restarted, you **MUST** go to the GitHub repository settings (`hjazouli/jenkins-swe6-testing`):
+   - Navigate to **Settings** -> **Webhooks**.
+   - Edit the webhook and update the **Payload URL** with the new `localhost.run` domain.
+   - **Crucial:** Always ensure the Payload URL ends exactly with `/github-webhook/` (e.g., `https://<YOUR-NEW-URL>.lhr.life/github-webhook/`).
+   - Leave the content type as `application/json` and trigger event as `Just the push event`.
+3. **Registering the Trigger in Jenkins**: If the `Jenkinsfile` was updated, remember that Jenkins needs to run the job manually *once* for it to read the new file and activate the `githubPush()` listener. After that manual run, all subsequent Git pushes will automatically trigger the pipeline.
