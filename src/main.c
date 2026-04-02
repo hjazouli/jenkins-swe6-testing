@@ -1,3 +1,4 @@
+/* ECU Firmware v1.0.1 - Brake Controller Mock */
 #include <stdio.h>
 
 /**
