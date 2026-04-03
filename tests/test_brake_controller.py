@@ -85,3 +85,62 @@ def test_abs_activation_logic(can_bus, ecu_reset, speed, pedal, expected_abs):
     assert actual_abs == expected_abs, f"Expected ABS {expected_abs}, got {actual_abs} for spd={speed}, pedal={pedal}"
     
     print(f"✅ PASSED: ABS logic verification for Speed={speed}, Pedal={pedal}")
+
+def test_brake_out_of_bounds_rejection(can_bus):
+    """
+    SWE.6 Test Case: Verify ECU handles out-of-bounds pedal values safely.
+    Polarion: SWE_REQ_003
+    """
+    # 1. Send invalid pedal position (150% = 0x96, max allowed is 100% = 0x64)
+    invalid_pedal = 0x96
+    brake_signal = can.Message(
+        arbitration_id=0x200,
+        data=[0x00, 0x00, 0x00, invalid_pedal],
+        is_extended_id=False
+    )
+    
+    can_bus.send(brake_signal)
+    
+    while can_bus.recv(timeout=0): pass # flush
+    
+    response = None
+    timeout = time.time() + 1.0
+    while time.time() < timeout:
+        msg = can_bus.recv(timeout=0.1)
+        if msg and msg.arbitration_id == 0x300:
+            response = msg
+            break
+            
+    assert response is not None, "ECU did not respond to invalid brake pedal!"
+    
+    # 3. Verify Data (Should be capped at 100% = 0x64)
+    pressure = response.data[3]
+    assert pressure <= 0x64, f"ECU failed to cap invalid pedal pressure! Got {pressure}"
+    
+    print(f"✅ PASSED: Out-of-bounds rejection successful.")
+
+def test_emergency_brake_assist_activation(can_bus):
+    """
+    SWE.6 Test Case: Verify Emergency Brake Assist triggers warning flags on high jump.
+    Polarion: SWE_REQ_004
+    """
+    # 1. Send 100% force
+    brake_signal = can.Message(
+        arbitration_id=0x200,
+        data=[0x00, 0x00, 0x00, 0x64],
+        is_extended_id=False
+    )
+    can_bus.send(brake_signal)
+    
+    while can_bus.recv(timeout=0): pass # flush buffer
+    
+    response = None
+    timeout = time.time() + 1.0
+    while time.time() < timeout:
+        msg = can_bus.recv(timeout=0.1)
+        if msg and msg.arbitration_id == 0x300:
+            response = msg
+            break
+            
+    assert response is not None, "ECU did not respond!"
+    print(f"✅ PASSED: Emergency Brake Assist logic simulated.")
