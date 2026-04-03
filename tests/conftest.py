@@ -13,6 +13,8 @@ class VirtualECU(threading.Thread):
         self.running = True
         self.daemon = True
         self.vehicle_speed = 0
+        self.brake_temp = 0
+        self.brake_wear = 0
 
     def run(self):
         print("\n[Virtual ECU] Initialized and listening on CAN bus...")
@@ -31,10 +33,22 @@ class VirtualECU(threading.Thread):
             self.vehicle_speed = msg.data[2]
             print(f"[Virtual ECU] Updated VehSpeed: {self.vehicle_speed} km/h")
 
+        # 0x220: Brake Temperature
+        elif msg.arbitration_id == 0x220:
+            self.brake_temp = msg.data[0]
+            print(f"[Virtual ECU] Updated BrakeTemp: {self.brake_temp} C")
+
+        # 0x240: Brake Pad Wear (SWE_REQ_006)
+        elif msg.arbitration_id == 0x240:
+            self.brake_wear = msg.data[0]
+            print(f"[Virtual ECU] Updated BrakeWear: {self.brake_wear}%")
+
         # 0x100: ECU Reset
         elif msg.arbitration_id == 0x100:
             print("[Virtual ECU] Resetting state...")
             self.vehicle_speed = 0
+            self.brake_temp = 0
+            self.brake_wear = 0
 
         # 0x200: Brake Pedal Message
         elif msg.arbitration_id == 0x200:
@@ -60,9 +74,18 @@ class VirtualECU(threading.Thread):
             abs_active = (
                 0x01 if (self.vehicle_speed > 100 and pedal_value > 80) else 0x00
             )
+
+            # SWE.6 New Feature: Brake Overheat logic
+            # If temperature > 200°C -> Activate Overheat flag (Bit 1 of status)
+            overheat_active = 0x02 if self.brake_temp > 200 else 0x00
+
+            # SWE.6 New Feature: Brake Wear logic (SWE_REQ_006)
+            # If wear > 90% -> Activate Wear Warning flag (Bit 3 of status)
+            wear_warning = 0x08 if self.brake_wear > 90 else 0x00
+
             status_msg = can.Message(
                 arbitration_id=0x400,  # Status ID
-                data=[abs_active, 0x00],
+                data=[abs_active | overheat_active | wear_warning, 0x00],
                 is_extended_id=False,
             )
             self.bus.send(status_msg)

@@ -6,8 +6,9 @@
  * This simulates the software that would be flashed to the TC397.
  */
 int main() {
-    printf("ECU Firmware v1.1.0 Initialized\n");
+    printf("ECU Firmware v1.2.0 Initialized\n");
     printf("Target: TC397 (Infineon TriCore)\n");
     printf("Brake Control Logic: Active\n");
+    printf("Brake Wear Monitoring: Active\n");
     return 0;
 }

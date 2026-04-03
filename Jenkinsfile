@@ -13,6 +13,12 @@ pipeline {
     }
     
     stages {
+        stage('Set Build Name') {
+            steps {
+                buildName "#${BUILD_NUMBER} - ${env.BRANCH_NAME} - ${env.GIT_COMMIT[0..6]}"
+                buildDescription "Triggered by: ${env.CHANGE_AUTHOR ?: 'scheduler'}"
+            }
+        }
         stage('Checkout') {
             steps {
                 echo '📦 Pulling latest code...'
