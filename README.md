@@ -36,8 +36,9 @@ The pipeline automates the entire lifecycle:
 1.  **Checkout**: Retrieves source code.
 2.  **Build**: Compiles `main.c` into `firmware.elf` using `gcc`.
 3.  **Flash**: Executes `mock_lauterbach.py` to simulate the deployment of firmware to hardware.
-4.  **Pytest**: Runs automated functional tests against the virtual ECU using `python-can`.
-5.  **Report & Upload**: Generates HTML/JUnit reports and pushes them to a mock Polarion server.
+4.  **Linting**: Performs static code analysis with `pylint` to enforce a quality threshold (7.0/10).
+5.  **Pytest & Coverage**: Runs automated functional tests and collects branch coverage data (`pytest-cov`).
+6.  **Report & Upload**: Generates HTML/JUnit reports and pushes them to a mock Polarion server.
 
 ### 3. Automated Testing (`tests/`)
 
@@ -47,6 +48,7 @@ Tests are written in Python using `pytest` and `python-can`:
 - **ABS Logic**: Validates Anti-lock Braking System (ABS) activation parameters (CAN ID `0x210` & `0x400`) based on vehicle speed and pedal force.
 - **Out-of-Bounds Rejection (SWE_REQ_003)**: Verifies the virtual ECU safety logic clamping invalid pedal input (>100%) to a maximum of 100% prior to hydraulic calculation. 
 - **Emergency Brake Assist (SWE_REQ_004)**: Verifies the simulated ECU handles instantaneous extreme forces (100% force in a single frame) safely.
+- **Brake Pad Wear Monitoring (SWE_REQ_006)**: Validates that the ECU triggers a warning flag in the status message (ID `0x400`) when pad wear exceeds 90% (monitored via ID `0x240`).
 
 ### 4. Integration Tooling (`scripts/`)
 
@@ -58,8 +60,9 @@ Tests are written in Python using `pytest` and `python-can`:
 - **Languages**: C, Python
 - **Build System**: Make/GCC
 - **CI/CD**: Jenkins (Locally Hosted)
+- **Quality Gates**: Pylint (Static Analysis), Pytest-cov (Branch Coverage)
 - **Testing**: Pytest, python-can
-- **Reporting**: JUnit, HTML (pytest-html)
+- **Reporting**: JUnit, HTML (pytest-html), Cobertura (XML Coverage)
 - **Target**: Infineon TriCore TC397 (Mocked)
 
 ## CI/CD Automation Setup (SCM Polling)
