@@ -38,6 +38,11 @@ class VirtualECU(threading.Thread):
         # 0x200: Brake Pedal Message
         elif msg.arbitration_id == 0x200:
             pedal_value = msg.data[3]
+            
+            # SWE_REQ_003: Cap out-of-bounds pedal values to 100%
+            if pedal_value > 100:
+                pedal_value = 100
+                
             print(f"[Virtual ECU] Received Brake Pedal: {pedal_value}%")
             
             # Simulate ECU calculating Hydraulic pressure (1:1 mapping for simplicity)
