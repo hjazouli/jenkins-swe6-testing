@@ -12,16 +12,19 @@ dist/
 
 # Compiled Python bytecode
 *.py[cod]
+__pycache__/
+*.pyc
 
 # Log files
 *.log
+jenkins.log
 
 # Package files
 *.jar
+jenkins.war
 
 # Maven
 target/
-dist/
 
 # JetBrains IDE
 .idea/
@@ -47,4 +50,3 @@ Thumbs.db
 *.flv
 *.mov
 *.wmv
-
