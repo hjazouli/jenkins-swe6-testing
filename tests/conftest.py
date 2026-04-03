@@ -1,7 +1,7 @@
+import threading
+import time
 import pytest
 import can
-import time
-import threading
 
 
 # --- Virtual ECU Simulator ---

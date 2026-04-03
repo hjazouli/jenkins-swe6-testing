@@ -44,15 +44,25 @@ pipeline {
             }
         }
         
+        stage('Linting (Python)') {
+            steps {
+                echo '🔍 Running static code analysis (pylint)...'
+                sh "python3 -m pylint tests/ scripts/ --fail-under=7.0"
+            }
+        }
+        
         stage('Run Pytest Suite (Virtual CAN)') {
             steps {
-                echo '🧪 Executing automated tests...'
-                // Use virtual CAN for testing inside Jenkins
+                echo '🧪 Executing automated tests with Coverage...'
                 sh "pip3 install -r requirements.txt"
                 sh '''
                     python3 -m pytest \
                         tests/ \
                         --junitxml=test-results.xml \
+                        --cov=tests \
+                        --cov=scripts \
+                        --cov-report=xml:coverage.xml \
+                        --cov-report=term \
                         --html=report.html \
                         --self-contained-html
                 '''
@@ -83,7 +93,7 @@ pipeline {
     post {
         always {
             junit 'test-results.xml'
-            archiveArtifacts artifacts: 'build/firmware.elf, report.html'
+            archiveArtifacts artifacts: 'build/firmware.elf, report.html, coverage.xml'
         }
         success {
             echo '✅ Pipeline passed! Virtual ECU verified.'
