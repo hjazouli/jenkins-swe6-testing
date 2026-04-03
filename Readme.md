@@ -1,6 +1,6 @@
 # Project Analysis: SWE6-Test
 
-## 🚗 Overview
+## Overview
 
 The **SWE6-Test** project is a simulation of an automotive CI/CD pipeline designed for Software Engineering (SWE.6) unit and integration testing. It models the workflow of building, flashing, and testing firmware for an Electronic Control Unit (ECU), specifically a **Brake Controller**.
 
@@ -23,7 +23,7 @@ SWE6-Test/
 └── build/                   # Compiled artifacts (firmware.elf)
 ```
 
-## 🛠️ Key Components
+## Key Components
 
 ### 1. Mock ECU Firmware (`src/main.c`)
 
@@ -53,7 +53,7 @@ Tests are written in Python using `pytest` and `python-can`:
 - **Flashing Simulation**: `mock_lauterbach.py` imitates the behavior of industry-standard debuggers.
 - **ALM Integration**: `polarion_upload.py` demonstrates how test results are integrated back into ALM (Application Lifecycle Management) tools for traceability.
 
-## 📈 Summary of Technologies
+##  Summary of Technologies
 
 - **Languages**: C, Python
 - **Build System**: Make/GCC
@@ -62,7 +62,7 @@ Tests are written in Python using `pytest` and `python-can`:
 - **Reporting**: JUnit, HTML (pytest-html)
 - **Target**: Infineon TriCore TC397 (Mocked)
 
-## 🔄 CI/CD Automation Setup (SCM Polling)
+## CI/CD Automation Setup (SCM Polling)
 
 The Jenkins pipeline is designed to act seamlessly like **GitHub Actions**. It automatically detects source code changes pushed to the repository and isolated test builds are triggered natively.
 
