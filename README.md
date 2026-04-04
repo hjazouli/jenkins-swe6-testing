@@ -31,14 +31,14 @@ A minimal C application that simulates the base software for a **TC397 (Infineon
 
 ### 2. CI/CD Pipeline (`Jenkinsfile`)
 
-The pipeline automates the entire lifecycle:
+The pipeline automates the entire lifecycle with **Sandbox Isolation**:
 
-1.  **Checkout**: Retrieves source code.
+1.  **Checkout & Venv**: Retrieves source code and initializes/updates a **Python Virtual Environment (`.venv`)** to ensure tool dependencies are locally pinned.
 2.  **Build**: Compiles `main.c` into `firmware.elf` using `gcc`.
-3.  **Flash**: Executes `mock_lauterbach.py` to simulate the deployment of firmware to hardware.
-4.  **Linting**: Performs static code analysis with `pylint` to enforce a quality threshold (7.0/10).
-5.  **Pytest & Coverage**: Runs automated functional tests and collects branch coverage data (`pytest-cov`).
-6.  **Report & Upload**: Generates HTML/JUnit reports and pushes them to a mock Polarion server.
+3.  **Flash**: Executes `mock_lauterbach.py` (via `.venv`) to simulate firmware deployment.
+4.  **Linting**: Performs static analysis with `pylint` inside the sandbox.
+5.  **Pytest & Coverage**: Runs functional tests and collects branch coverage.
+6.  **Report & Upload**: Generates reports and pushes them to a mock Polarion server.
 
 ### 3. Automated Testing (`tests/`)
 
