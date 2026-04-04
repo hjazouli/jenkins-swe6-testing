@@ -15,8 +15,15 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                echo '📦 Pulling latest code...'
+                echo '📦 Pulling latest code and preparing venv...'
                 // checkout scm
+                sh '''
+                    if [ ! -d ".venv" ]; then
+                        python3 -m venv .venv
+                    fi
+                    .venv/bin/pip install --upgrade pip
+                    .venv/bin/pip install -r requirements.txt
+                '''
             }
         }
         
@@ -37,26 +44,25 @@ pipeline {
             }
         }
         
-        stage('Flash ECU (Lauterbach Mock)') {
+        stage('Flash ECU (CMM Integration Mock)') {
             steps {
-                echo '⚡ Flashing firmware to mock ECU...'
-                sh "python3 scripts/mock_lauterbach.py ELF_PATH=${FIRMWARE_BINARY}"
+                echo '⚡ Flashing firmware via Mocked CMM runner...'
+                sh ".venv/bin/python3 scripts/mock_lauterbach.py ELF_PATH=${FIRMWARE_BINARY}"
             }
         }
         
         stage('Linting (Python)') {
             steps {
-                echo '🔍 Running static code analysis (pylint)...'
-                sh "python3 -m pylint tests/ scripts/ --fail-under=7.0"
+                echo '🔍 Running isolated static code analysis (pylint)...'
+                sh ".venv/bin/python3 -m pylint tests/ scripts/ --fail-under=7.0"
             }
         }
         
         stage('Run Pytest Suite (Virtual CAN)') {
             steps {
-                echo '🧪 Executing automated tests with Coverage...'
-                sh "pip3 install -r requirements.txt"
+                echo '🧪 Executing automated tests in sandbox...'
                 sh '''
-                    python3 -m pytest \
+                    .venv/bin/python3 -m pytest \
                         tests/ \
                         --junitxml=test-results.xml \
                         --cov=tests \
@@ -74,12 +80,12 @@ pipeline {
                 echo '📊 Pushing results to Polarion...'
                 sh '''
                     # Start mock server in background
-                    python3 scripts/mock_polarion_server.py &
+                    .venv/bin/python3 scripts/mock_polarion_server.py &
                     MOCK_SERVER_PID=$!
                     sleep 2
                     
                     # Upload results
-                    python3 scripts/polarion_upload.py \
+                    .venv/bin/python3 scripts/polarion_upload.py \
                         --xml test-results.xml \
                         --testrun "Build_${BUILD_NUMBER}"
                     
