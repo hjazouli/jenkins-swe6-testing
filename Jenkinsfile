@@ -58,6 +58,13 @@ pipeline {
             }
         }
         
+        stage('Static Analysis (C)') {
+            steps {
+                echo '🔍 Checking C source code for security and quality issues (flawfinder)...'
+                sh ".venv/bin/flawfinder src/app/ src/bsw/ src/main.c --minlevel=1"
+            }
+        }
+        
         stage('Run Pytest Suite (Virtual CAN)') {
             steps {
                 echo '🧪 Executing automated tests in sandbox...'
