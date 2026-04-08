@@ -30,6 +30,7 @@ target/
 
 # Unit test reports
 TEST*.xml
+.venv/
 .pytest_cache/
 .coverage
 coverage.xml
