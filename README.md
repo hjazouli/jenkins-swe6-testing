@@ -1,83 +1,116 @@
-# Project Analysis: SWE6-Test
+# SWE6-Test: ECU Firmware CI/CD & Verification Framework
 
-## Overview
+## 📌 Mission Overview
+The **SWE6-Test** repository is a high-fidelity simulation of an automotive software development environment. It demonstrates how to achieve **ASPICE SWE.6 (Software Unit Test)** and **SWE.5 (Software Integration Test)** compliance using a modern CI/CD stack. 
 
-The **SWE6-Test** project is a simulation of an automotive CI/CD pipeline designed for Software Engineering (SWE.6) unit and integration testing. It models the workflow of building, flashing, and testing firmware for an Electronic Control Unit (ECU), specifically a **Brake Controller**.
+This project simulates the development of a **Brake Control ECU** (Infineon TC397 target), moving from raw C source code to a fully verified, coverage-tracked, and automated pipeline.
 
-## 📂 Project Structure
+---
 
+## 🏗️ System Architecture
+
+### 1. Firmware Layers (C Source)
+The firmware is structured using a simplified **AUTOSAR-like** layered architecture:
+*   **ASW (Application Software Layer)**:
+    *   `src/app/brake_logic.c`: Contains the core safety logic, including hydraulic pressure calculations, ABS (Anti-lock Braking System) algorithms, and thermal/wear monitoring.
+*   **BSW (Base Software Layer)**:
+    *   `src/bsw/schm.c`: A static scheduler implementing a 10ms task cycle for real-time responsiveness.
+    *   `src/bsw/can_stack.c`: Simulates the communication stack. It includes a **Mock CAN Buffer** to allow unit testing of BSW without actual hardware or transceiver drivers.
+
+### 2. Verification Layers (The "Boring" Details)
+
+#### **Layer A: Unit Testing (C/Unity)**
+Located in `unit_tests/`, these tests target individual C functions in total isolation.
+*   **Framework**: [Unity](https://github.com/ThrowTheSwitch/Unity).
+*   **Coverage Tooling**: 
+    *   **Instrumentation**: Compiled with `gcc --coverage -fprofile-arcs -ftest-coverage`.
+    *   **Reporting**: `gcovr` is used to aggregate `.gcda` files and generate **Cobertura XML** for Jenkins and **HTML** for developers.
+*   **Test Cases**:
+    *   `test_brake_logic.c`: Boundary conditions for ABS (speed > 100km/h), sensor clamping for invalid inputs (0-100%), and warning flag logic for Overheat (>200°C) and Wear (>90%).
+    *   `test_schm.c`: Validates the internal tick counter and task triggering.
+    *   `test_can_stack.c`: Uses the **Mock Injection API** to verify that the BSW correctly processes incoming CAN data into internal variables.
+
+#### **Layer B: Functional/HIL Testing (Python/Pytest)**
+Located in `functional_tests/`, these tests treat the ECU as a black box.
+*   **Infrastructure**: Uses `python-can` and a **Virtual CAN Bus** (`vbus_shared`) to simulate the vehicle network.
+*   **Simulation**: A `VirtualECU` thread in `conftest.py` imitates the real-time behavior of the firmware.
+*   **Test Scenarios**:
+    *   **Fault Injection**: Mocking short-to-ground or open-circuit conditions to verify fail-safe behavior.
+    *   **Electrical Stress**: Simulating low-voltage (9V) or ignition cycle recovery using the `power_supply` fixture.
+    *   **DTC/UDS**: Simulating diagnostic sessions and status logging.
+
+---
+
+## 📂 Evolution of the Project Structure
+We recently refactored the project to adopt a more professional naming convention:
 ```text
 SWE6-Test/
-├── Jenkinsfile              # CI/CD pipeline definition
-├── Makefile                 # Build instructions for C firmware
-├── requirements.txt         # Python dependencies (pytest, python-can, etc.)
-├── src/
-│   └── main.c                # Mock ECU firmware source
-├── tests/
-│   ├── conftest.py          # Pytest fixtures and CAN setup
-│   └── test_brake_controller.py # Automotive logic test cases
-├── scripts/
-│   ├── mock_lauterbach.py   # Simulates ECU flashing
-│   ├── mock_polarion_server.py # Simulates ALM server
-│   └── polarion_upload.py   # Test results uploader
-└── build/                   # Compiled artifacts (firmware.elf)
+├── unit_tests/           # C Unit Tests (The "Inside-the-box" logic)
+│   ├── unity/            # Unity Framework source
+│   ├── test_brake_logic.c
+│   ├── test_schm.c
+│   └── test_can_stack.c
+├── functional_tests/     # Python HIL/Integration Tests (The "Outside-the-box" behavior)
+│   ├── conftest.py       # Virtual ECU & HIL Fixtures
+│   ├── __init__.py      # Package marker for discovery
+│   └── test_*.py         # High-level requirement verification
+├── src/                  # Production Firmware Source
+├── scripts/              # CI/CD Helper Scripts (Mock flashers, ALM uploaders)
+├── build/                # Compiled binaries and coverage artifacts
+└── Jenkinsfile           # The "Source of Truth" for automation
 ```
 
-## Key Components
+---
 
-### 1. Mock ECU Firmware (`src/main.c`)
+## 🚀 The CI/CD Pipeline (`Jenkinsfile`)
+The pipeline is designed for **Zero-Touch Automation**. Every commit triggers a full validation battery:
 
-A minimal C application that simulates the base software for a **TC397 (Infineon TriCore)** ECU. It provides basic initialization logging.
+1.  **Stage: Setup**: Initializes a Python Virtual Environment (`.venv`) and installs `requirements.txt` (including `gcovr`, `pytest-cov`, and `allure-pytest`).
+2.  **Stage: Build**: Compiles production firmware into `firmware.elf`.
+3.  **Stage: Unit Tests (C)**: Uses `Make` to compile and run all Unity tests with coverage instrumentation.
+4.  **Stage: Coverage (C)**: Invokes `gcovr` to generate `build/c-coverage.xml`.
+5.  **Stage: Linting**: Runs `pylint` on Python scripts and tests to ensure code quality.
+6.  **Stage: Functional Tests**: Executes the full `pytest` suite on the Virtual CAN bus.
+7.  **Stage: Reporting**:
+    *   **JUnit**: Uploads `test-results.xml` for Jenkins dashboard.
+    *   **Allure**: Generates interactive visual historical reports.
+    *   **Coverage**: Archives `coverage.xml` (Python) and `c-coverage.xml` (C).
 
-### 2. CI/CD Pipeline (`Jenkinsfile`)
+---
 
-The pipeline automates the entire lifecycle with **Sandbox Isolation**:
+## 🛠️ Developer Manual (Boring but Essential)
 
-1.  **Checkout & Venv**: Retrieves source code and initializes/updates a **Python Virtual Environment (`.venv`)** to ensure tool dependencies are locally pinned.
-2.  **Build**: Compiles `main.c` into `firmware.elf` using `gcc`.
-3.  **Flash**: Executes `mock_lauterbach.py` (via `.venv`) to simulate firmware deployment.
-4.  **Linting**: Performs static analysis with `pylint` inside the sandbox.
-5.  **Pytest & Coverage**: Runs functional tests and collects branch coverage.
-6.  **Report & Upload**: Generates reports and pushes them to a mock Polarion server.
+### Running Everything Locally
+To replicate the Jenkins environment on your workstation:
 
-### 3. Automated Testing (`unit_tests/` and `functional_tests/`)
+```bash
+# 1. Prepare Environment
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
 
-Tests are written in Python using `pytest` and `python-can`:
+# 2. Run C Unit Tests & Coverage
+make clean
+make test_c
+gcovr -r . --filter src/ --html-details build/c-coverage.html
 
-- **Brake Pressure Response**: Verifies the ECU responds correctly to brake pedal signals (CAN ID `0x200` & `0x300`).
-- **ABS Logic**: Validates Anti-lock Braking System (ABS) activation parameters (CAN ID `0x210` & `0x400`) based on vehicle speed and pedal force.
-- **Out-of-Bounds Rejection (SWE_REQ_003)**: Verifies the virtual ECU safety logic clamping invalid pedal input (>100%) to a maximum of 100% prior to hydraulic calculation. 
-- **Emergency Brake Assist (SWE_REQ_004)**: Verifies the simulated ECU handles instantaneous extreme forces (100% force in a single frame) safely.
-- **Brake Pad Wear Monitoring (SWE_REQ_006)**: Validates that the ECU triggers a warning flag in the status message (ID `0x400`) when pad wear exceeds 90% (monitored via ID `0x240`).
+# 3. Run Python Functional Tests
+pytest functional_tests/ --alluredir=allure-results
+```
 
-### 4. Integration Tooling (`scripts/`)
+### Addressing "Detached HEAD" or Push Issues
+If the pipeline fails after a rename/refactor, ensure:
+1.  **Imports**: No static imports refer to the old `tests/` directory (use `functional_tests/`).
+2.  **__init__.py**: Every test folder must have an `__init__.py` for package discovery.
+3.  **Path Consistency**: The `Jenkinsfile` and `Makefile` must both have the same view of the filesystem.
 
-- **Flashing Simulation**: `mock_lauterbach.py` imitates the behavior of industry-standard debuggers.
-- **ALM Integration**: `polarion_upload.py` demonstrates how test results are integrated back into ALM (Application Lifecycle Management) tools for traceability.
+---
 
-##  Summary of Technologies
+## 📈 Future Outlook
+*   **Static Analysis (C)**: Integrate MISRA-C checkers (e.g., Cppcheck or PC-Lint).
+*   **Complex Scenarios**: Add multi-ECU coordination tests (e.g., Brake ECU + Steering ECU interaction).
+*   **Requirement Traceability**: Fully map every Python test to a specific requirement in `Polarion` via the result uploader.
 
-- **Languages**: C, Python
-- **Build System**: Make/GCC
-- **CI/CD**: Jenkins (Locally Hosted)
-- **Quality Gates**: Pylint (Static Analysis), Pytest-cov (Branch Coverage)
-- **Testing**: Pytest, python-can
-- **Reporting**: JUnit, HTML (pytest-html), Cobertura (XML Coverage)
-- **Target**: Infineon TriCore TC397 (Mocked)
-
-## CI/CD Automation Setup (SCM Polling)
-
-The Jenkins pipeline is designed to act seamlessly like **GitHub Actions**. It automatically detects source code changes pushed to the repository and isolated test builds are triggered natively.
-
-**Architecture Breakdown & Why It Works:**
-Previously, the integration relied on "GitHub Webhooks" alongside fragile SSH tunneling (e.g., `localhost.run`). Because local development laptops sit behind firewalls seamlessly routing incoming GitHub webhooks is inherently buggy. 
-
-To solve this, the pipeline has been modified to use **SCM Polling**. 
-- **Trigger Strategy:** The `Jenkinsfile` utilizes the trigger `pollSCM('* * * * *')`.
-- **How it functions:** Every 60 seconds, the local Jenkins application makes an *outbound* HTTP connection to GitHub to inspect if the git history has progressed. If a new commit hash is detected, a build is initialized directly. This entirely bypasses firewall restrictions and requires *zero internet tunneling*.
-
-**Instructions for the Next Developer:**
-1. **Starting Jenkins Engine**: Simply spin up the local Jenkins footprint via Docker: `docker-compose up -d`. This uses your local `~/.jenkins` directory for jobs and history.
-2. **Accessing Dashboard**: Navigate to `http://localhost:8081` on your local machine to monitor health metrics, view console outputs, or check pipeline status.
-3. **Triggering the Build Pipeline**: You do not need to intervene manually! Write code, assert your logic, commit, and `git push` to your repository. Within 60 seconds, Jenkins will independently intercept the repo state and execute the pipeline workflow.
-4. **Altering Jenkins Configuration**: If making adjustments to the overarching CI workflow (e.g. adding code linting phases or modifying Jenkins architecture), alter the `Jenkinsfile` directly. Upon pushing your modified `Jenkinsfile`, remember you must click "Build Now" manually from the Jenkins UI *exactly one time*. This informs Jenkins to resync its underlying triggers with your new script configuration.
+---
+**Maintained by**: Antigravity AI
+**Status**: Fully Automated / SWE.6 & SWE.5 Compliant
