@@ -26,4 +26,21 @@ clean:
 	rm -rf build/
 	rm -f $(OBJS)
 
-.PHONY: all clean
+test_c: test_brake_logic test_schm test_can_stack
+
+test_brake_logic:
+	mkdir -p build/unit_tests
+	$(CC) $(CFLAGS) --coverage -Iunit_tests/unity unit_tests/unity/unity.c src/app/brake_logic.c unit_tests/test_brake_logic.c -o build/unit_tests/test_brake_logic
+	./build/unit_tests/test_brake_logic
+
+test_schm:
+	mkdir -p build/unit_tests
+	$(CC) $(CFLAGS) --coverage -Iunit_tests/unity unit_tests/unity/unity.c src/bsw/schm.c unit_tests/test_schm.c -o build/unit_tests/test_schm
+	./build/unit_tests/test_schm
+
+test_can_stack:
+	mkdir -p build/unit_tests
+	$(CC) $(CFLAGS) --coverage -Iunit_tests/unity unit_tests/unity/unity.c src/bsw/can_stack.c unit_tests/test_can_stack.c -o build/unit_tests/test_can_stack
+	./build/unit_tests/test_can_stack
+
+.PHONY: all clean test_c test_brake_logic test_schm test_can_stack

@@ -51,10 +51,30 @@ pipeline {
             }
         }
         
-        stage('BSW Unit Tests (C)') {
+        stage('BSW Unit Tests: Scheduler (C)') {
             steps {
                 echo '🧪 Executing BSW Unit Tests: Scheduler...'
                 sh 'make test_schm'
+            }
+        }
+
+        stage('BSW Unit Tests: CAN (C)') {
+            steps {
+                echo '🧪 Executing BSW Unit Tests: CAN Stack...'
+                sh 'make test_can_stack'
+            }
+        }
+
+        stage('Coverage Analysis (C)') {
+            steps {
+                echo '📊 Generating C Code Coverage report (gcovr)...'
+                sh '''
+                    .venv/bin/gcovr -r . \
+                        --filter src/ \
+                        --xml-pretty \
+                        --xml build/c-coverage.xml \
+                        --html-details build/c-coverage.html
+                '''
             }
         }
         
@@ -68,7 +88,7 @@ pipeline {
         stage('Linting (Python)') {
             steps {
                 echo '🔍 Running isolated static code analysis (pylint)...'
-                sh ".venv/bin/python3 -m pylint tests/ scripts/ --fail-under=7.0"
+                sh ".venv/bin/python3 -m pylint functional_tests/ scripts/ --fail-under=7.0"
             }
         }
         
@@ -84,9 +104,9 @@ pipeline {
                 echo '🧪 Executing automated tests in sandbox...'
                 sh '''
                     .venv/bin/python3 -m pytest \
-                        tests/ \
+                        functional_tests/ \
                         --junitxml=test-results.xml \
-                        --cov=tests \
+                        --cov=functional_tests \
                         --cov=scripts \
                         --cov-report=xml:coverage.xml \
                         --cov-report=term \
@@ -119,8 +139,11 @@ pipeline {
     post {
         always {
             junit 'test-results.xml'
-            archiveArtifacts artifacts: 'build/firmware.elf, coverage.xml'
+            archiveArtifacts artifacts: 'build/firmware.elf, build/c-coverage.xml, coverage.xml'
             allure includeProperties: false, jdk: '', results: [[path: 'allure-results']]
+            
+            // Note: In a real Jenkins instance, you would use 'cobertura coberturaReportFile: "build/c-coverage.xml"'
+            // to show the coverage bars on the dashboard.
         }
         success {
             echo '✅ Pipeline passed! Virtual ECU verified.'
