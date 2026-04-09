@@ -76,8 +76,7 @@ pipeline {
                         --cov=scripts \
                         --cov-report=xml:coverage.xml \
                         --cov-report=term \
-                        --html=report.html \
-                        --self-contained-html
+                        --alluredir=allure-results
                 '''
             }
         }
@@ -106,7 +105,8 @@ pipeline {
     post {
         always {
             junit 'test-results.xml'
-            archiveArtifacts artifacts: 'build/firmware.elf, report.html, coverage.xml'
+            archiveArtifacts artifacts: 'build/firmware.elf, coverage.xml'
+            allure includeProperties: false, jdk: '', results: [[path: 'allure-results']]
         }
         success {
             echo '✅ Pipeline passed! Virtual ECU verified.'
