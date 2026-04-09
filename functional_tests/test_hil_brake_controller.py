@@ -163,7 +163,7 @@ def test_fault_injection_short_to_ground_state(fault_injection):
     On real HIL: the relay board would physically short CAN_H to GND,
     causing bus-off errors or dominant bit stuffing violations.
     """
-    from tests.conftest import FaultInjectionController
+    from functional_tests.conftest import FaultInjectionController
 
     # 1. No fault at start
     assert (
@@ -198,7 +198,7 @@ def test_fault_injection_open_circuit_no_response(can_bus, fault_injection, ecu_
     receiving a valid pedal signal, resulting in a safe-state (0% pedal) response.
     The test assertion would then check for the safe-state response value instead.
     """
-    from tests.conftest import FaultInjectionController
+    from functional_tests.conftest import FaultInjectionController
 
     # 1. Inject open circuit on brake sensor
     fault_injection.inject(
@@ -240,7 +240,7 @@ def test_fault_injection_teardown_always_clears(fault_injection):
         3. Test passes — teardown will call controller.clear("ALL").
         The fixture teardown in conftest guarantees clear() runs even on exception.
     """
-    from tests.conftest import FaultInjectionController
+    from functional_tests.conftest import FaultInjectionController
 
     fault_injection.inject("CAN_L", FaultInjectionController.FAULT_SHORT_VBATT)
     assert fault_injection.active_fault == FaultInjectionController.FAULT_SHORT_VBATT
@@ -266,7 +266,7 @@ def test_power_supply_nominal_voltage_on_start(power_supply):
         The power_supply fixture initialises the PSU at NOMINAL_VOLTAGE (12.0V)
         with output enabled. Assert the state before any test manipulation.
     """
-    from tests.conftest import BenchPowerSupply
+    from functional_tests.conftest import BenchPowerSupply
 
     assert power_supply.is_on is True, "PSU output should be enabled at session start."
     assert (
@@ -289,7 +289,7 @@ def test_power_supply_low_voltage_ecu_still_responds(can_bus, power_supply, ecu_
     On real HIL: PSU SCPI command "VOLT 9.00" is issued over VISA.
     ECU supply rail drops; current draw typically increases slightly.
     """
-    from tests.conftest import BenchPowerSupply
+    from functional_tests.conftest import BenchPowerSupply
 
     # 1. Low voltage stress
     power_supply.set_voltage(BenchPowerSupply.MIN_VOLTAGE)
@@ -327,7 +327,7 @@ def test_power_supply_overvoltage_clamped(power_supply):
     On real HIL: the PSU itself also has hardware OVP (Over Voltage Protection);
     this test validates the software safety layer catches the error first.
     """
-    from tests.conftest import BenchPowerSupply
+    from functional_tests.conftest import BenchPowerSupply
 
     with pytest.raises(ValueError, match="outside safe range"):
         power_supply.set_voltage(20.0)  # Above MAX_VOLTAGE=16V
@@ -488,7 +488,7 @@ def test_low_voltage_abs_activation_logged(
     This is a typical compound HIL test: electrical stress + functional verification
     + full traffic capture for traceability.
     """
-    from tests.conftest import BenchPowerSupply
+    from functional_tests.conftest import BenchPowerSupply
 
     # 1. Low voltage stress
     power_supply.set_voltage(BenchPowerSupply.MIN_VOLTAGE)
@@ -539,7 +539,7 @@ def test_fault_injection_with_uds_session_and_logging(
     This type of test validates fault tolerance during diagnostic activity —
     a critical ISO 26262 ASIL-B scenario for brake ECUs.
     """
-    from tests.conftest import FaultInjectionController
+    from functional_tests.conftest import FaultInjectionController
 
     # 1. UDS session is already open (fixture setup)
     # 2. Inject fault on brake sensor supply line
@@ -582,7 +582,7 @@ def test_power_cycle_restores_abs_state(
         3. After boot, verify ABS is no longer active (state was reset).
         4. Sample ECU supply voltage via DAQ and confirm it is back to nominal.
     """
-    from tests.conftest import BenchPowerSupply
+    from functional_tests.conftest import BenchPowerSupply
 
     # 1. Activate ABS
     can_bus.send(

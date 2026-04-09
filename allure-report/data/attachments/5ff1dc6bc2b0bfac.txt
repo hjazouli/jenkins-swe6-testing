@@ -1,0 +1,9 @@
+[Virtual ECU] Resetting state...
+[Virtual ECU] Updated VehSpeed: 120 km/h
+[Virtual ECU] Received Brake Pedal: 90%
+[HIL PSU] Starting power cycle...
+[HIL PSU] Power cycle complete. Output ENABLED.
+[Virtual ECU] Updated VehSpeed: 0 km/h
+[Virtual ECU] Received Brake Pedal: 16%
+✅ PASSED: ABS cleared after ignition cycle. ECU VCC = 12.0V (nominal).
+[HIL PSU] Voltage set to 12.0V

@@ -1,0 +1,3 @@
+[Virtual ECU] Resetting state...
+[Virtual ECU] Updated BrakeTemp: 250 C
+[Virtual ECU] Received Brake Pedal: 50%

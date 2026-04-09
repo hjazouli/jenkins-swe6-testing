@@ -1,0 +1,6 @@
+[Virtual ECU] Resetting state...
+[HIL PSU] Voltage set to 9.0V
+[Virtual ECU] Received Brake Pedal: 50%
+[HIL PSU] Voltage set to 12.0V
+✅ PASSED: ECU responds correctly at 9.0V supply.
+[HIL PSU] Voltage set to 12.0V

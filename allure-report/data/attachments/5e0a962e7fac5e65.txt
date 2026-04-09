@@ -1,0 +1,3 @@
+[Virtual ECU] Resetting state...
+[Virtual ECU] Updated BrakeWear: 95%
+[Virtual ECU] Received Brake Pedal: 50%

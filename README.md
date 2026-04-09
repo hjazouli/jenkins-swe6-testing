@@ -40,7 +40,7 @@ The pipeline automates the entire lifecycle with **Sandbox Isolation**:
 5.  **Pytest & Coverage**: Runs functional tests and collects branch coverage.
 6.  **Report & Upload**: Generates reports and pushes them to a mock Polarion server.
 
-### 3. Automated Testing (`tests/`)
+### 3. Automated Testing (`unit_tests/` and `functional_tests/`)
 
 Tests are written in Python using `pytest` and `python-can`:
 

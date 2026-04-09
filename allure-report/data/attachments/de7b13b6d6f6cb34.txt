@@ -1,0 +1,3 @@
+[HIL FI] Injecting SHORT_TO_VBATT on CAN_L
+✅ PASSED: Fault teardown safety guarantee verified.
+[HIL FI] Clearing faults on ALL

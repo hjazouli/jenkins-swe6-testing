@@ -1,0 +1,3 @@
+[Virtual ECU] Resetting state...
+[Virtual ECU] Updated VehSpeed: 30 km/h
+[Virtual ECU] Received Brake Pedal: 90%

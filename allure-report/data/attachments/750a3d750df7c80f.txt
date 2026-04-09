@@ -1,0 +1,7 @@
+[Virtual ECU] Resetting state...
+[HIL PSU] Voltage set to 9.0V
+[Virtual ECU] Updated VehSpeed: 120 km/h
+[Virtual ECU] Received Brake Pedal: 90%
+[HIL PSU] Voltage set to 12.0V
+✅ PASSED: ABS activated at 9.0V supply. CAN traffic logged to: capture_test_low_voltage_abs_activation_logged.asc
+[HIL PSU] Voltage set to 12.0V

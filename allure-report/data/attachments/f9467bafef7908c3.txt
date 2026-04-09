@@ -1,0 +1,2 @@
+✅ PASSED: PSU at nominal 12.0V, output enabled.
+[HIL PSU] Voltage set to 12.0V
