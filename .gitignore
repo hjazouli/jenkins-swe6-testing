@@ -62,4 +62,5 @@ Thumbs.db
 # Build artifacts
 build/
 allure-results/
+allure-report/
 capture_*.asc
