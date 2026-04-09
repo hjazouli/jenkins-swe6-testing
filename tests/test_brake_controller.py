@@ -6,8 +6,8 @@ import time
 # CAN message constants
 # ---------------------------------------------------------------------------
 BRAKE_CMD_ID = 0x200  # input: brake pedal position
-TEMP_CMD_ID = 0x220   # input: brake temperature
-WEAR_CMD_ID = 0x240   # input: brake pad wear
+TEMP_CMD_ID = 0x220  # input: brake temperature
+WEAR_CMD_ID = 0x240  # input: brake pad wear
 SPEED_CMD_ID = 0x210  # input: vehicle speed
 PRESSURE_RESP_ID = 0x300  # output: brake pressure response
 ABS_STATUS_ID = 0x400  # output: ABS / Overheat / Wear flags
@@ -65,6 +65,7 @@ def send_speed(can_bus, speed):
         )
     )
 
+
 def send_temp(can_bus, temp):
     can_bus.send(
         can.Message(
@@ -73,6 +74,7 @@ def send_temp(can_bus, temp):
             is_extended_id=False,
         )
     )
+
 
 def send_wear(can_bus, wear):
     can_bus.send(
@@ -133,7 +135,7 @@ class TestStatusFlags:
         "speed,pedal,expected_abs",
         [
             (120, 90, 1),  # high speed + hard brake  → ON
-            (30, 90, 0),   # low speed  + hard brake  → OFF
+            (30, 90, 0),  # low speed  + hard brake  → OFF
             (120, 20, 0),  # high speed + light brake → OFF
         ],
     )
@@ -152,17 +154,19 @@ class TestStatusFlags:
         flush(can_bus)
         send_temp(can_bus, 250)
         time.sleep(0.1)
-        send_brake(can_bus, 0x32) # trigger status update
+        send_brake(can_bus, 0x32)  # trigger status update
         status = recv_id(can_bus, ABS_STATUS_ID, timeout=2.0)
         assert status is not None, "ECU did not send status!"
-        assert status.data[0] & OVERHEAT_BIT, f"Expected Overheat flag, got {status.data[0]:#x}"
+        assert (
+            status.data[0] & OVERHEAT_BIT
+        ), f"Expected Overheat flag, got {status.data[0]:#x}"
 
     def test_brake_wear_warning(self, can_bus, ecu_reset):
         """Verify Brake Wear flag is set when wear > 90%."""
         flush(can_bus)
         send_wear(can_bus, 95)
         time.sleep(0.1)
-        send_brake(can_bus, 0x32) # trigger status update
+        send_brake(can_bus, 0x32)  # trigger status update
         status = recv_id(can_bus, ABS_STATUS_ID, timeout=2.0)
         assert status is not None, "ECU did not send status!"
         assert status.data[0] & WEAR_BIT, f"Expected Wear flag, got {status.data[0]:#x}"

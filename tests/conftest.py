@@ -11,11 +11,13 @@ import pytest
 # 1. VIRTUAL ECU SIMULATOR
 # -----------------------------------------------------------------------------
 
+
 class VirtualECU(threading.Thread):
     """
     Simulates a brake ECU (e.g. TC397) on the CAN bus.
     Runs in a background thread and processes incoming brake/speed signals.
     """
+
     def __init__(self, bus: can.BusABC):
         super().__init__()
         self.bus = bus
@@ -66,9 +68,7 @@ class VirtualECU(threading.Thread):
                 print(f"[Virtual ECU] Diagnostic Session Switch: 0x{sub_fn:02x}")
                 # Positive response (SID + 0x40)
                 resp = can.Message(
-                    arbitration_id=0x700,
-                    data=[0x50, sub_fn],
-                    is_extended_id=False
+                    arbitration_id=0x700, data=[0x50, sub_fn], is_extended_id=False
                 )
                 self.bus.send(resp)
 
@@ -118,8 +118,10 @@ class VirtualECU(threading.Thread):
 # 2. HIL INFRASTRUCTURE MOCKS
 # -----------------------------------------------------------------------------
 
+
 class FaultInjectionController:
     """Mocks a physical relay/matrix board for Fault Injection (FI)."""
+
     FAULT_NONE = "NONE"
     FAULT_SHORT_GND = "SHORT_TO_GROUND"
     FAULT_SHORT_VBATT = "SHORT_TO_VBATT"
@@ -139,6 +141,7 @@ class FaultInjectionController:
 
 class BenchPowerSupply:
     """Mocks a programmable power supply (e.g. R&S NGE100)."""
+
     NOMINAL_VOLTAGE = 12.0
     MIN_VOLTAGE = 9.0
     MAX_VOLTAGE = 16.0
@@ -149,7 +152,9 @@ class BenchPowerSupply:
 
     def set_voltage(self, voltage: float):
         if not (self.MIN_VOLTAGE <= voltage <= self.MAX_VOLTAGE):
-            raise ValueError(f"Voltage {voltage}V is outside safe range {self.MIN_VOLTAGE}-{self.MAX_VOLTAGE}V")
+            raise ValueError(
+                f"Voltage {voltage}V is outside safe range {self.MIN_VOLTAGE}-{self.MAX_VOLTAGE}V"
+            )
         print(f"[HIL PSU] Voltage set to {voltage}V")
         self.voltage = voltage
 
@@ -163,6 +168,7 @@ class BenchPowerSupply:
 
 class SignalMonitor:
     """Mocks a DAQ (Data Acquisition) system for monitoring analog signals."""
+
     def __init__(self):
         self.history = {}
 
@@ -190,6 +196,7 @@ class SignalMonitor:
 # -----------------------------------------------------------------------------
 # 3. PYTEST FIXTURES (The HIL Framework)
 # -----------------------------------------------------------------------------
+
 
 @pytest.fixture(scope="session")
 def can_bus():
@@ -226,14 +233,18 @@ def ecu_reset(can_bus):
 def uds_session(can_bus):
     """Manage a UDS diagnostic session (setup = Extended, teardown = Default)."""
     # 1. Open Extended Session (0x10 0x03)
-    can_bus.send(can.Message(arbitration_id=0x100, data=[0x10, 0x03], is_extended_id=False))
+    can_bus.send(
+        can.Message(arbitration_id=0x100, data=[0x10, 0x03], is_extended_id=False)
+    )
     time.sleep(0.05)
     print("\n[UDS] Switched to EXTENDED SESSION (0x03)")
 
     yield "EXTENDED"
 
     # 2. Return to Default Session (0x10 0x01)
-    can_bus.send(can.Message(arbitration_id=0x100, data=[0x10, 0x01], is_extended_id=False))
+    can_bus.send(
+        can.Message(arbitration_id=0x100, data=[0x10, 0x01], is_extended_id=False)
+    )
     time.sleep(0.05)
     print("[UDS] Switched to DEFAULT SESSION (0x01)")
 
@@ -243,7 +254,7 @@ def can_logger(can_bus, request):
     """Log CAN traffic to an .asc file named after the current test."""
     test_name = request.node.name
     log_file = f"capture_{test_name}.asc"
-    
+
     # Simple mock: just yield the path
     # In a real HIL, we would attach a can.asc.ASCWriter
     yield log_file
@@ -265,7 +276,7 @@ def power_supply():
     """Provide a BenchPowerSupply instance."""
     psu = BenchPowerSupply()
     yield psu
-    psu.set_voltage(BenchPowerSupply.NOMINAL_VOLTAGE) # Safety teardown
+    psu.set_voltage(BenchPowerSupply.NOMINAL_VOLTAGE)  # Safety teardown
 
 
 @pytest.fixture

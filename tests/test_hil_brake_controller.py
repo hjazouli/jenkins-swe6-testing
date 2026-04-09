@@ -10,13 +10,17 @@ import can
 # Helpers
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def _send_brake_pedal(can_bus: can.BusABC, pedal_pct: int):
     """Send a CAN brake pedal message (0x200) with the given percentage value."""
-    can_bus.send(can.Message(
-        arbitration_id=0x200,
-        data=[0x00, 0x00, 0x00, pedal_pct],
-        is_extended_id=False
-    ))
+    can_bus.send(
+        can.Message(
+            arbitration_id=0x200,
+            data=[0x00, 0x00, 0x00, pedal_pct],
+            is_extended_id=False,
+        )
+    )
+
 
 def _recv_until(can_bus: can.BusABC, arb_id: int, timeout_s: float = 1.0):
     """Drain the bus buffer and collect the first message matching arb_id."""
@@ -37,6 +41,7 @@ def _recv_until(can_bus: can.BusABC, arb_id: int, timeout_s: float = 1.0):
 # Real HIL: ECU replies with positive response 0x50 0x03 on real hardware.
 # =============================================================================
 
+
 def test_uds_session_opens_and_nominal_can_still_works(can_bus, uds_session, ecu_reset):
     """
     HIL Test: Verify that opening a UDS Extended Session does not disrupt normal CAN traffic.
@@ -52,12 +57,12 @@ def test_uds_session_opens_and_nominal_can_still_works(can_bus, uds_session, ecu
 
     response = _recv_until(can_bus, arb_id=0x300)
 
-    assert response is not None, (
-        "ECU stopped responding to brake pedal during UDS Extended Session!"
-    )
-    assert response.data[3] == 0x40, (
-        f"Expected pressure 0x40 during UDS session, got {response.data[3]:#04x}"
-    )
+    assert (
+        response is not None
+    ), "ECU stopped responding to brake pedal during UDS Extended Session!"
+    assert (
+        response.data[3] == 0x40
+    ), f"Expected pressure 0x40 during UDS session, got {response.data[3]:#04x}"
     print("✅ PASSED: ECU ASW remains operational during UDS Extended Session.")
 
 
@@ -73,7 +78,9 @@ def test_uds_session_closes_gracefully(can_bus, uds_session):
     """
     # The test body intentionally empty — we are testing the fixture lifecycle.
     # The fixture teardown (session close) executes after this yield returns.
-    print("ℹ️  uds_session teardown will send DefaultSession close frame after this test.")
+    print(
+        "ℹ️  uds_session teardown will send DefaultSession close frame after this test."
+    )
     print("✅ PASSED: UDS session fixture lifecycle verified.")
 
 
@@ -82,6 +89,7 @@ def test_uds_session_closes_gracefully(can_bus, uds_session):
 # Verifies that CAN traffic is captured to an .asc log file during the test.
 # The log file can be opened in CANalyzer or PEAK PCAN-View post-mortem.
 # =============================================================================
+
 
 def test_can_logger_captures_brake_frames(can_bus, can_logger):
     """
@@ -118,20 +126,18 @@ def test_can_logger_file_is_written_after_traffic(can_bus, can_logger, tmp_path)
         Note: We read the file size *before* teardown as a pre-check.
     """
     # Generate diverse CAN traffic (speed + pedal)
-    can_bus.send(can.Message(
-        arbitration_id=0x210,
-        data=[0x00, 0x00, 80],
-        is_extended_id=False
-    ))
+    can_bus.send(
+        can.Message(arbitration_id=0x210, data=[0x00, 0x00, 80], is_extended_id=False)
+    )
     time.sleep(0.05)
     _send_brake_pedal(can_bus, pedal_pct=0x50)
     time.sleep(0.2)
 
     # The .asc file is being written during the test; teardown flushes & closes it.
     # Check the path is correctly formed (filename == test name)
-    assert "test_can_logger_file_is_written_after_traffic" in str(can_logger), (
-        f"Log file name does not match test name: {can_logger}"
-    )
+    assert "test_can_logger_file_is_written_after_traffic" in str(
+        can_logger
+    ), f"Log file name does not match test name: {can_logger}"
     print(f"ℹ️  Log path verified: {can_logger}")
     print("✅ PASSED: CAN logger file naming and path verified.")
 
@@ -142,6 +148,7 @@ def test_can_logger_file_is_written_after_traffic(can_bus, can_logger, tmp_path)
 # that its safety teardown always clears faults regardless of test outcome.
 # Real HIL: relay board physically disconnects/shorts the signal wire.
 # =============================================================================
+
 
 def test_fault_injection_short_to_ground_state(fault_injection):
     """
@@ -159,21 +166,21 @@ def test_fault_injection_short_to_ground_state(fault_injection):
     from tests.conftest import FaultInjectionController
 
     # 1. No fault at start
-    assert fault_injection.active_fault == FaultInjectionController.FAULT_NONE, (
-        "FaultInjectionController should start with no active fault."
-    )
+    assert (
+        fault_injection.active_fault == FaultInjectionController.FAULT_NONE
+    ), "FaultInjectionController should start with no active fault."
 
     # 2. Inject fault
     fault_injection.inject("CAN_H", FaultInjectionController.FAULT_SHORT_GND)
-    assert fault_injection.active_fault == FaultInjectionController.FAULT_SHORT_GND, (
-        f"Expected SHORT_TO_GROUND, got {fault_injection.active_fault}"
-    )
+    assert (
+        fault_injection.active_fault == FaultInjectionController.FAULT_SHORT_GND
+    ), f"Expected SHORT_TO_GROUND, got {fault_injection.active_fault}"
 
     # 3. Clear fault
     fault_injection.clear("CAN_H")
-    assert fault_injection.active_fault == FaultInjectionController.FAULT_NONE, (
-        "Fault should be NONE after clearing."
-    )
+    assert (
+        fault_injection.active_fault == FaultInjectionController.FAULT_NONE
+    ), "Fault should be NONE after clearing."
     print("✅ PASSED: FaultInjectionController state transitions verified.")
 
 
@@ -194,7 +201,9 @@ def test_fault_injection_open_circuit_no_response(can_bus, fault_injection, ecu_
     from tests.conftest import FaultInjectionController
 
     # 1. Inject open circuit on brake sensor
-    fault_injection.inject("BRAKE_SENSOR_A", FaultInjectionController.FAULT_OPEN_CIRCUIT)
+    fault_injection.inject(
+        "BRAKE_SENSOR_A", FaultInjectionController.FAULT_OPEN_CIRCUIT
+    )
     assert fault_injection.active_fault == FaultInjectionController.FAULT_OPEN_CIRCUIT
 
     # 2. Attempt to send a brake pedal message
@@ -203,13 +212,15 @@ def test_fault_injection_open_circuit_no_response(can_bus, fault_injection, ecu_
 
     # 3. In virtual mode: ECU still responds (fault is simulated at controller level only)
     # On real HIL: assert response is None or response.data[3] == 0x00 (safe state)
-    print(f"ℹ️  [Virtual] ECU responded with: {response.data[3] if response else 'None'}")
+    print(
+        f"ℹ️  [Virtual] ECU responded with: {response.data[3] if response else 'None'}"
+    )
     print("ℹ️  On real HIL: assert no response or safe-state (0x00) pressure output.")
 
     # Fault controller must report the injected fault
-    assert fault_injection.active_fault == FaultInjectionController.FAULT_OPEN_CIRCUIT, (
-        "Fault should still be active — not yet cleared."
-    )
+    assert (
+        fault_injection.active_fault == FaultInjectionController.FAULT_OPEN_CIRCUIT
+    ), "Fault should still be active — not yet cleared."
     fault_injection.clear("BRAKE_SENSOR_A")
     print("✅ PASSED: Fault injection open circuit scenario executed.")
 
@@ -245,6 +256,7 @@ def test_fault_injection_teardown_always_clears(fault_injection):
 # Real HIL: SCPI commands to a Rohde & Schwarz NGE100B or Keysight E3631A.
 # =============================================================================
 
+
 def test_power_supply_nominal_voltage_on_start(power_supply):
     """
     HIL Test: Verify power supply starts at 12V nominal and output is enabled.
@@ -257,9 +269,9 @@ def test_power_supply_nominal_voltage_on_start(power_supply):
     from tests.conftest import BenchPowerSupply
 
     assert power_supply.is_on is True, "PSU output should be enabled at session start."
-    assert power_supply.voltage == BenchPowerSupply.NOMINAL_VOLTAGE, (
-        f"Expected nominal {BenchPowerSupply.NOMINAL_VOLTAGE}V, got {power_supply.voltage}V"
-    )
+    assert (
+        power_supply.voltage == BenchPowerSupply.NOMINAL_VOLTAGE
+    ), f"Expected nominal {BenchPowerSupply.NOMINAL_VOLTAGE}V, got {power_supply.voltage}V"
     print(f"✅ PASSED: PSU at nominal {power_supply.voltage}V, output enabled.")
 
 
@@ -289,16 +301,18 @@ def test_power_supply_low_voltage_ecu_still_responds(can_bus, power_supply, ecu_
     response = _recv_until(can_bus, arb_id=0x300)
 
     # 3. ECU must still respond
-    assert response is not None, (
-        f"ECU stopped responding at {power_supply.voltage}V — low-voltage dropout!"
-    )
-    assert response.data[3] == 0x32, (
-        f"Unexpected pressure value at low voltage: {response.data[3]:#04x}"
-    )
+    assert (
+        response is not None
+    ), f"ECU stopped responding at {power_supply.voltage}V — low-voltage dropout!"
+    assert (
+        response.data[3] == 0x32
+    ), f"Unexpected pressure value at low voltage: {response.data[3]:#04x}"
 
     # 4. Restore nominal
     power_supply.set_voltage(BenchPowerSupply.NOMINAL_VOLTAGE)
-    print(f"✅ PASSED: ECU responds correctly at {BenchPowerSupply.MIN_VOLTAGE}V supply.")
+    print(
+        f"✅ PASSED: ECU responds correctly at {BenchPowerSupply.MIN_VOLTAGE}V supply."
+    )
 
 
 def test_power_supply_overvoltage_clamped(power_supply):
@@ -319,9 +333,9 @@ def test_power_supply_overvoltage_clamped(power_supply):
         power_supply.set_voltage(20.0)  # Above MAX_VOLTAGE=16V
 
     # Voltage must remain unchanged after the rejected command
-    assert power_supply.voltage == BenchPowerSupply.NOMINAL_VOLTAGE, (
-        "PSU voltage was modified despite a rejected set_voltage() call!"
-    )
+    assert (
+        power_supply.voltage == BenchPowerSupply.NOMINAL_VOLTAGE
+    ), "PSU voltage was modified despite a rejected set_voltage() call!"
     print("✅ PASSED: PSU correctly rejects overvoltage command.")
 
 
@@ -351,9 +365,9 @@ def test_power_supply_ignition_cycle_ecu_recovers(can_bus, power_supply, ecu_res
     response = _recv_until(can_bus, arb_id=0x300)
 
     assert response is not None, "ECU did not recover after ignition cycle!"
-    assert response.data[3] == 0x20, (
-        f"Unexpected response after power cycle: {response.data[3]:#04x}"
-    )
+    assert (
+        response.data[3] == 0x20
+    ), f"Unexpected response after power cycle: {response.data[3]:#04x}"
     print("✅ PASSED: ECU recovered after ignition cycle.")
 
 
@@ -363,7 +377,10 @@ def test_power_supply_ignition_cycle_ecu_recovers(can_bus, power_supply, ecu_res
 # Real HIL: NI USB-6001 / NI PCIe-6321 measures physical voltages.
 # =============================================================================
 
-def test_signal_monitor_brake_pressure_voltage_in_range(can_bus, signal_monitor, ecu_reset):
+
+def test_signal_monitor_brake_pressure_voltage_in_range(
+    can_bus, signal_monitor, ecu_reset
+):
     """
     HIL Test: Verify brake pressure sensor output voltage is within spec after braking.
     Polarion: SWE_REQ_HIL_012
@@ -416,9 +433,9 @@ def test_signal_monitor_multi_channel_sampling(can_bus, signal_monitor, ecu_rese
     v_can_ref = signal_monitor.sample("CAN_VREF_V", mock_value=2.5)
 
     # Batch range validation
-    signal_monitor.assert_in_range("ECU_VCC_V",       low=10.8, high=13.2)
-    signal_monitor.assert_in_range("BRAKE_PRESSURE_V", low=0.0,  high=5.0)
-    signal_monitor.assert_in_range("CAN_VREF_V",       low=2.375, high=2.625)
+    signal_monitor.assert_in_range("ECU_VCC_V", low=10.8, high=13.2)
+    signal_monitor.assert_in_range("BRAKE_PRESSURE_V", low=0.0, high=5.0)
+    signal_monitor.assert_in_range("CAN_VREF_V", low=2.375, high=2.625)
 
     history = signal_monitor.get_history("ECU_VCC_V")
     assert len(history) == 1, f"Expected 1 sample, got {len(history)}"
@@ -451,7 +468,10 @@ def test_signal_monitor_assert_in_range_detects_fault(signal_monitor):
 # simulate the kind of compound scenarios found in AUTOSAR/ISO 26262 test plans.
 # =============================================================================
 
-def test_low_voltage_abs_activation_logged(can_bus, power_supply, can_logger, ecu_reset):
+
+def test_low_voltage_abs_activation_logged(
+    can_bus, power_supply, can_logger, ecu_reset
+):
     """
     HIL Test: Verify ABS activates correctly at low supply voltage, with CAN log.
     Polarion: SWE_REQ_HIL_015
@@ -475,11 +495,9 @@ def test_low_voltage_abs_activation_logged(can_bus, power_supply, can_logger, ec
     time.sleep(0.1)
 
     # 2. Set speed = 120 km/h
-    can_bus.send(can.Message(
-        arbitration_id=0x210,
-        data=[0x00, 0x00, 120],
-        is_extended_id=False
-    ))
+    can_bus.send(
+        can.Message(arbitration_id=0x210, data=[0x00, 0x00, 120], is_extended_id=False)
+    )
     time.sleep(0.1)
 
     # 3. Hard brake: 90% pedal
@@ -496,8 +514,10 @@ def test_low_voltage_abs_activation_logged(can_bus, power_supply, can_logger, ec
     # 4. Restore nominal
     power_supply.set_voltage(BenchPowerSupply.NOMINAL_VOLTAGE)
 
-    print(f"✅ PASSED: ABS activated at {BenchPowerSupply.MIN_VOLTAGE}V supply. "
-          f"CAN traffic logged to: {can_logger}")
+    print(
+        f"✅ PASSED: ABS activated at {BenchPowerSupply.MIN_VOLTAGE}V supply. "
+        f"CAN traffic logged to: {can_logger}"
+    )
 
 
 def test_fault_injection_with_uds_session_and_logging(
@@ -523,7 +543,9 @@ def test_fault_injection_with_uds_session_and_logging(
 
     # 1. UDS session is already open (fixture setup)
     # 2. Inject fault on brake sensor supply line
-    fault_injection.inject("BRAKE_SENSOR_VCC", FaultInjectionController.FAULT_SHORT_VBATT)
+    fault_injection.inject(
+        "BRAKE_SENSOR_VCC", FaultInjectionController.FAULT_SHORT_VBATT
+    )
     assert fault_injection.active_fault == FaultInjectionController.FAULT_SHORT_VBATT
     time.sleep(0.05)
 
@@ -539,11 +561,15 @@ def test_fault_injection_with_uds_session_and_logging(
     fault_injection.clear("BRAKE_SENSOR_VCC")
     assert fault_injection.active_fault == FaultInjectionController.FAULT_NONE
 
-    print(f"✅ PASSED: Fault injection + UDS session + CAN logging combined test passed. "
-          f"Log: {can_logger}")
+    print(
+        f"✅ PASSED: Fault injection + UDS session + CAN logging combined test passed. "
+        f"Log: {can_logger}"
+    )
 
 
-def test_power_cycle_restores_abs_state(can_bus, power_supply, signal_monitor, ecu_reset):
+def test_power_cycle_restores_abs_state(
+    can_bus, power_supply, signal_monitor, ecu_reset
+):
     """
     HIL Test: Verify ABS state is cleared after ignition cycle and DAQ shows nominal voltage.
     Polarion: SWE_REQ_HIL_017
@@ -559,38 +585,120 @@ def test_power_cycle_restores_abs_state(can_bus, power_supply, signal_monitor, e
     from tests.conftest import BenchPowerSupply
 
     # 1. Activate ABS
-    can_bus.send(can.Message(
-        arbitration_id=0x210,
-        data=[0x00, 0x00, 120],
-        is_extended_id=False
-    ))
+    can_bus.send(
+        can.Message(arbitration_id=0x210, data=[0x00, 0x00, 120], is_extended_id=False)
+    )
     time.sleep(0.1)
     _send_brake_pedal(can_bus, pedal_pct=90)
     status = _recv_until(can_bus, arb_id=0x400)
-    assert status is not None and (status.data[0] & 0x01) == 0x01, "ABS should be ON pre-cycle."
+    assert (
+        status is not None and (status.data[0] & 0x01) == 0x01
+    ), "ABS should be ON pre-cycle."
 
     # 2. Ignition cycle
     power_supply.power_cycle(off_duration_s=0.3)
     time.sleep(0.3)  # ECU boot time
 
     # 3. After power cycle: send 0 pedal, expect ABS OFF
-    can_bus.send(can.Message(
-        arbitration_id=0x210,
-        data=[0x00, 0x00, 0],     # speed = 0 after reboot
-        is_extended_id=False
-    ))
+    can_bus.send(
+        can.Message(
+            arbitration_id=0x210,
+            data=[0x00, 0x00, 0],  # speed = 0 after reboot
+            is_extended_id=False,
+        )
+    )
     time.sleep(0.1)
     _send_brake_pedal(can_bus, pedal_pct=0x10)  # light pedal
     status_after = _recv_until(can_bus, arb_id=0x400)
 
     assert status_after is not None, "ECU did not respond after power cycle!"
     abs_bit_after = status_after.data[0] & 0x01
-    assert abs_bit_after == 0x00, (
-        f"ABS should be OFF after ignition cycle. Got status: {status_after.data[0]:#04x}"
-    )
+    assert (
+        abs_bit_after == 0x00
+    ), f"ABS should be OFF after ignition cycle. Got status: {status_after.data[0]:#04x}"
 
     # 4. DAQ: confirm supply voltage is back to nominal post-cycle
     vcc = signal_monitor.sample("ECU_VCC_V", mock_value=power_supply.voltage)
     signal_monitor.assert_in_range("ECU_VCC_V", low=10.8, high=13.2)
 
     print(f"✅ PASSED: ABS cleared after ignition cycle. ECU VCC = {vcc}V (nominal).")
+
+
+def test_brake_overheat_safe_state_logged(can_bus, can_logger, ecu_reset):
+    """
+    HIL Test: Verify brake overheat warning bit is set when temperature > 200C.
+    Polarion: SWE_REQ_HIL_018
+
+    Scenario:
+        1. Inject brake temperature > 200C via CAN.
+        2. Apply brake pedal.
+        3. Verify the ECU responds with status frame (0x400) where the Overheat bit (Bit 1) is active.
+    """
+    # 1. Send Brake Temp = 250C (0x220)
+    can_bus.send(can.Message(
+        arbitration_id=0x220,
+        data=[250],
+        is_extended_id=False
+    ))
+    time.sleep(0.1)
+
+    # 2. Trigger brake to get status
+    _send_brake_pedal(can_bus, pedal_pct=50)
+    status_msg = _recv_until(can_bus, arb_id=0x400)
+
+    assert status_msg is not None, "ECU did not send status!"
+    assert (status_msg.data[0] & 0x02) == 0x02, (
+        f"Overheat bit should be set at 250C. Got: {status_msg.data[0]:#04x}"
+    )
+
+    print(f"✅ PASSED: Brake overheat recorded in log: {can_logger}")
+
+
+def test_brake_wear_warning_activation(can_bus, can_logger, ecu_reset):
+    """
+    HIL Test: Verify brake wear warning bit is set when wear > 90%.
+    Polarion: SWE_REQ_HIL_019
+
+    Scenario:
+        1. Send Pad Wear > 90% via CAN.
+        2. Apply brake pedal.
+        3. Verify the ECU responds with status frame (0x400) where the Wear bit (Bit 3) is active.
+    """
+    # 1. Send Brake Wear = 95% (0x240)
+    can_bus.send(can.Message(
+        arbitration_id=0x240,
+        data=[95],
+        is_extended_id=False
+    ))
+    time.sleep(0.1)
+
+    # 2. Trigger brake to get status
+    _send_brake_pedal(can_bus, pedal_pct=50)
+    status_msg = _recv_until(can_bus, arb_id=0x400)
+
+    assert status_msg is not None, "ECU did not send status!"
+    assert (status_msg.data[0] & 0x08) == 0x08, (
+        f"Wear bit should be set at 95% wear. Got: {status_msg.data[0]:#04x}"
+    )
+
+    print(f"✅ PASSED: Brake wear recorded in log: {can_logger}")
+
+
+def test_signal_monitor_temp_sensor_range(can_bus, signal_monitor, ecu_reset):
+    """
+    HIL Test: Verify temperature sensor analog range mapping.
+    Polarion: SWE_REQ_HIL_020
+
+    Scenario:
+        1. Sample the BRAKE_TEMP_V analog channel.
+        2. Assert voltage falls within the nominal sensor range [0.5V, 4.5V].
+    """
+    # Sample temperature sensor voltage (mock: 3.5V for 250C)
+    voltage = signal_monitor.sample("BRAKE_TEMP_V", mock_value=3.5)
+    
+    # Assert within valid range [0.5V, 4.5V]
+    assert 0.5 <= voltage <= 4.5, f"Brake temp voltage out of spec: {voltage}V"
+    signal_monitor.assert_in_range("BRAKE_TEMP_V", low=0.5, high=4.5)
+
+    print(f"✅ PASSED: BRAKE_TEMP_V = {voltage}V (within [0.5V, 4.5V]).")
+
