@@ -44,6 +44,20 @@ pipeline {
             }
         }
         
+        stage('ASW Unit Tests (C)') {
+            steps {
+                echo '🧪 Executing ASW Unit Tests: Brake Logic...'
+                sh 'make test_brake_logic'
+            }
+        }
+        
+        stage('BSW Unit Tests (C)') {
+            steps {
+                echo '🧪 Executing BSW Unit Tests: Scheduler...'
+                sh 'make test_schm'
+            }
+        }
+        
         stage('Flash ECU (CMM Integration Mock)') {
             steps {
                 echo '⚡ Flashing firmware via Mocked CMM runner...'
