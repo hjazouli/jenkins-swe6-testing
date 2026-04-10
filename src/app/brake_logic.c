@@ -9,6 +9,8 @@ static uint8_t recovery_counter = 0;
 /* Plausibility states */
 static float last_vehicle_speed = 0.0f;
 static uint8_t plaus_counter = 0;
+static uint8_t plaus_latch = 0x00;
+static uint8_t plaus_recovery_counter = 0;
 
 /* ========================================================================= */
 /*                          STATIC FUNCTION PROTOTYPES                        */
@@ -33,8 +35,7 @@ static void Rolling_Plausibility_Check(const BrakeInput_t *input,
  * @requirement SWE_REQ_001
  */
 void Brake_Control_Init(BrakeOutput_t *output) {
-  if (output == (void *)0)
-    return;
+  if (output == (void *)0) return;
 
   output->hydraulic_pressure = 0.0f;
   output->abs_active = 0;
@@ -43,10 +44,12 @@ void Brake_Control_Init(BrakeOutput_t *output) {
   /* Reset internal latches */
   fault_latch = 0x00;
   recovery_counter = 0;
-
+  
   /* Reset plausibility */
   last_vehicle_speed = 0.0f;
   plaus_counter = 0;
+  plaus_latch = 0x00;
+  plaus_recovery_counter = 0;
 }
 
 /**
@@ -55,8 +58,7 @@ void Brake_Control_Init(BrakeOutput_t *output) {
  * SWE_REQ_010, SWE_REQ_011
  */
 void Brake_Control_Step(const BrakeInput_t *input, BrakeOutput_t *output) {
-  if ((input == (void *)0) || (output == (void *)0))
-    return;
+  if ((input == (void *)0) || (output == (void *)0)) return;
 
   /* -----------------------------------------------------------------------
    * 1. INPUT VALIDATION & CLAMPING (SWE_REQ_003)
@@ -168,16 +170,27 @@ static void Emergency_Stop_Assistance(const BrakeInput_t *input,
 static void Rolling_Plausibility_Check(const BrakeInput_t *input,
                                        BrakeOutput_t *output) {
   /* Condition: Pedal is pressed hard but speed is NOT decreasing (>=) */
-  if ((input->vehicle_speed >= last_vehicle_speed) &&
-      (input->pedal_force > 50.0f)) {
+  if ((input->vehicle_speed >= last_vehicle_speed) && (input->pedal_force > 50.0f)) {
     plaus_counter++;
     if (plaus_counter >= 5) {
-      output->status_flag |= 0x10; // Bit 4 for Stuck Pedal Error
+      plaus_latch = 0x10;
+      plaus_recovery_counter = 0;
     }
   } else {
     plaus_counter = 0;
+    /* Recovery logic: Must see decreasing speed for 3 frames to clear */
+    if (plaus_latch & 0x10) {
+       plaus_recovery_counter++;
+       if (plaus_recovery_counter >= 3) {
+           plaus_latch = 0x00;
+           plaus_recovery_counter = 0;
+       }
+    }
   }
 
   /* Update for next cycle comparison */
   last_vehicle_speed = input->vehicle_speed;
+  
+  /* Apply latched fault to status */
+  output->status_flag |= plaus_latch;
 }
