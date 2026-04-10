@@ -1,4 +1,0 @@
-[Virtual ECU] Resetting state...
-[Virtual ECU] Updated BrakeTemp: 250 C
-[Virtual ECU] Received Brake Pedal: 50%
-✅ PASSED: Brake overheat recorded in log: capture_test_brake_overheat_safe_state_logged.asc

@@ -1,8 +1,12 @@
 #include "unity.h"
 #include "app/brake_logic.h"
 
-/* Required by Unity */
-void setUp(void) {}
+/* Required by Unity: Reset state before each test */
+void setUp(void) {
+    BrakeOutput_t dummy;
+    Brake_Control_Init(&dummy);
+}
+
 void tearDown(void) {}
 
 /**
@@ -146,6 +150,36 @@ void test_Brake_Control_Step_Clamping(void) {
     TEST_ASSERT_EQUAL_FLOAT(0.0f, output.hydraulic_pressure);
 }
 
+/**
+ * test_Brake_Control_Step_DebounceRecovery:
+ * Scenario: Overheat occurs, then temperature drops. 
+ * Expected: Latch stays high for 2 cycles, clears on the 3rd.
+ */
+void test_Brake_Control_Step_DebounceRecovery(void) {
+    BrakeInput_t input = { .pedal_force = 10.0f };
+    BrakeOutput_t output;
+
+    /* 1. Trigger Fault */
+    input.brake_temp_celsius = 250.0f;
+    Brake_Control_Step(&input, &output);
+    TEST_ASSERT_BIT_HIGH(1, output.status_flag);
+
+    /* 2. Temperature drops but Bit stays LATCHED (Cycle 1) */
+    input.brake_temp_celsius = 150.0f;
+    Brake_Control_Step(&input, &output);
+    TEST_ASSERT_BIT_HIGH(1, output.status_flag);
+
+    /* 3. Still latched (Cycle 2) */
+    input.brake_temp_celsius = 150.0f;
+    Brake_Control_Step(&input, &output);
+    TEST_ASSERT_BIT_HIGH(1, output.status_flag);
+
+    /* 4. Cleared after 3 cycles (Cycle 3) */
+    input.brake_temp_celsius = 150.0f;
+    Brake_Control_Step(&input, &output);
+    TEST_ASSERT_BIT_LOW(1, output.status_flag);
+}
+
 int main(void) {
     UNITY_BEGIN();
     RUN_TEST(test_Brake_Control_Step_NormalBraking);
@@ -154,5 +188,6 @@ int main(void) {
     RUN_TEST(test_Brake_Control_Step_Warnings);
     RUN_TEST(test_Brake_Control_Step_ThresholdBoundaries);
     RUN_TEST(test_Brake_Control_Step_Clamping);
+    RUN_TEST(test_Brake_Control_Step_DebounceRecovery);
     return UNITY_END();
 }

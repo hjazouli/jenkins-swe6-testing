@@ -1,3 +1,0 @@
-[Virtual ECU] Resetting state...
-[Virtual ECU] Received Brake Pedal: 50%
-✅ PASSED: BRAKE_PRESSURE_V = 2.5V (within [1.0V, 4.0V]).

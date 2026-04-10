@@ -1,67 +1,5 @@
 "DESCRIPTION","DURATION IN MS","NAME","PARENT SUITE","START TIME","STATUS","STOP TIME","SUB SUITE","SUITE","TEST CLASS","TEST METHOD"
-"Verify Brake Overheat flag is set when temperature > 200°C.","103","test_brake_overheat_warning","tests","2026-04-09","passed","2026-04-09","TestStatusFlags","test_brake_controller","",""
-"
-HIL Test: Verify temperature sensor analog range mapping.
-Polarion: SWE_REQ_HIL_020
-
-Scenario:
-    1. Sample the BRAKE_TEMP_V analog channel.
-    2. Assert voltage falls within the nominal sensor range [0.5V, 4.5V].
-","1","test_signal_monitor_temp_sensor_range","tests","2026-04-09","passed","2026-04-09","","test_hil_brake_controller","",""
-"
-HIL Test: Verify temperature sensor analog range mapping.
-Polarion: SWE_REQ_HIL_020
-
-Scenario:
-    1. Sample the BRAKE_TEMP_V analog channel.
-    2. Assert voltage falls within the nominal sensor range [0.5V, 4.5V].
-","0","test_signal_monitor_temp_sensor_range","functional_tests","2026-04-09","passed","2026-04-09","","test_hil_brake_controller","",""
-"Verify Brake Wear flag is set when wear > 90%.","102","test_brake_wear_warning","tests","2026-04-09","passed","2026-04-09","TestStatusFlags","test_brake_controller","",""
-"
-HIL Test: Verify fault is cleared by fixture teardown even if test raises.
-Polarion: SWE_REQ_HIL_007
-
-Safety Requirement (ISO 26262): A fault left active on the bench after a
-test failure could damage downstream tests or real hardware. The fixture
-teardown MUST clear all faults unconditionally.
-
-Scenario:
-    1. Inject a fault.
-    2. Assert fault is active mid-test.
-    3. Test passes — teardown will call controller.clear(""ALL"").
-    The fixture teardown in conftest guarantees clear() runs even on exception.
-","0","test_fault_injection_teardown_always_clears","tests","2026-04-09","passed","2026-04-09","","test_hil_brake_controller","",""
-"
-HIL Test: Verify the .asc log file is non-empty after CAN traffic is generated.
-Polarion: SWE_REQ_HIL_004
-
-Scenario:
-    1. Generate several speed + brake CAN frames.
-    2. After notifier teardown (fixture cleanup), the file must contain content.
-    Note: We read the file size *before* teardown as a pre-check.
-","257","test_can_logger_file_is_written_after_traffic","functional_tests","2026-04-09","passed","2026-04-09","","test_hil_brake_controller","",""
-"
-HIL Test: Verify ECU silence when brake sensor line has an open circuit fault.
-Polarion: SWE_REQ_HIL_006
-
-Scenario:
-    1. Inject OPEN_CIRCUIT on BRAKE_SENSOR_A (simulated: virtual bus ignores this).
-    2. Send a brake pedal message — in virtual mode the ECU still responds.
-    3. Assert fault controller confirms the fault was applied.
-
-On real HIL: an open circuit on the sensor wire would prevent the ECU from
-receiving a valid pedal signal, resulting in a safe-state (0% pedal) response.
-The test assertion would then check for the safe-state response value instead.
-","1","test_fault_injection_open_circuit_no_response","tests","2026-04-09","passed","2026-04-09","","test_hil_brake_controller","",""
-"
-HIL Test: Verify that opening a UDS Extended Session does not disrupt normal CAN traffic.
-Polarion: SWE_REQ_HIL_001
-
-Scenario:
-    1. uds_session fixture opens an Extended Diagnostic Session (SID 0x10 subFn 0x03).
-    2. A brake pedal message (0x200) is sent during the active session.
-    3. Verify the ECU still responds correctly on 0x300 (session must not block ASW).
-","12","test_uds_session_opens_and_nominal_can_still_works","tests","2026-04-09","passed","2026-04-09","","test_hil_brake_controller","",""
+"","104","test_abs_logic[120-20-0]","functional_tests","2026-04-09","passed","2026-04-09","TestStatusFlags","test_brake_controller","",""
 "
 HIL Test: Verify ECU behaviour under wire fault with active UDS session, fully logged.
 Polarion: SWE_REQ_HIL_016
@@ -77,81 +15,7 @@ Scenario:
 
 This type of test validates fault tolerance during diagnostic activity —
 a critical ISO 26262 ASIL-B scenario for brake ECUs.
-","53","test_fault_injection_with_uds_session_and_logging","tests","2026-04-09","passed","2026-04-09","","test_hil_brake_controller","",""
-"
-HIL Test: Verify brake pressure sensor output voltage is within spec after braking.
-Polarion: SWE_REQ_HIL_012
-
-Scenario:
-    1. Send a 50% brake pedal signal.
-    2. Sample the BRAKE_PRESSURE_V analog channel.
-    3. Assert voltage falls within the nominal sensor range [1.0V, 4.0V].
-
-Sensor spec: 0% pedal → 0.5V, 100% pedal → 4.5V (linear).
-At 50%: expected ~2.5V (center of range).
-
-On real HIL: DAQ task reads NI Dev1/ai0 and returns actual measured voltage.
-Mock value 2.5V simulates the expected midpoint output.
-","104","test_signal_monitor_brake_pressure_voltage_in_range","functional_tests","2026-04-09","passed","2026-04-09","","test_hil_brake_controller","",""
-"
-HIL Test: Verify the .asc log file is non-empty after CAN traffic is generated.
-Polarion: SWE_REQ_HIL_004
-
-Scenario:
-    1. Generate several speed + brake CAN frames.
-    2. After notifier teardown (fixture cleanup), the file must contain content.
-    Note: We read the file size *before* teardown as a pre-check.
-","254","test_can_logger_file_is_written_after_traffic","tests","2026-04-09","passed","2026-04-09","","test_hil_brake_controller","",""
-"0x65 (just over limit): ECU must clamp to 0x64.","13","test_one_above_max","functional_tests","2026-04-09","passed","2026-04-09","TestPedalBoundary","test_brake_controller","",""
-"
-HIL Test: Verify that CAN frames exchanged during a brake event are logged to disk.
-Polarion: SWE_REQ_HIL_003
-
-Scenario:
-    1. can_logger fixture attaches an ASCWriter notifier to can_bus.
-    2. A brake pedal signal is sent (0x200) triggering an ECU response (0x300, 0x400).
-    3. After the test, verify the .asc log file was created and is non-empty.
-","202","test_can_logger_captures_brake_frames","tests","2026-04-09","passed","2026-04-09","","test_hil_brake_controller","",""
-"
-HIL Test: Verify assert_in_range raises AssertionError when a sample is out of spec.
-Polarion: SWE_REQ_HIL_014
-
-Scenario:
-    Inject a deliberately out-of-spec voltage (6.0V on a 0–5V channel) and
-    confirm the DAQ assertion catches it. This validates the test infrastructure
-    itself — a necessary step in HIL framework qualification (ISO 26262 Part 6).
-","0","test_signal_monitor_assert_in_range_detects_fault","functional_tests","2026-04-09","passed","2026-04-09","","test_hil_brake_controller","",""
-"
-HIL Test: Verify PSU rejects voltages above MAX_VOLTAGE (16V) as a safety guard.
-Polarion: SWE_REQ_HIL_010
-
-Scenario:
-    Attempt to set PSU to 20V (above MAX_VOLTAGE limit of 16V).
-    The BenchPowerSupply.set_voltage() must raise ValueError to protect hardware.
-
-On real HIL: the PSU itself also has hardware OVP (Over Voltage Protection);
-this test validates the software safety layer catches the error first.
-","1","test_power_supply_overvoltage_clamped","functional_tests","2026-04-09","broken","2026-04-09","","test_hil_brake_controller","",""
-"
-HIL Test: Verify power supply starts at 12V nominal and output is enabled.
-Polarion: SWE_REQ_HIL_008
-
-Scenario:
-    The power_supply fixture initialises the PSU at NOMINAL_VOLTAGE (12.0V)
-    with output enabled. Assert the state before any test manipulation.
-","1","test_power_supply_nominal_voltage_on_start","tests","2026-04-09","passed","2026-04-09","","test_hil_brake_controller","",""
-"
-HIL Test: Verify PSU rejects voltages above MAX_VOLTAGE (16V) as a safety guard.
-Polarion: SWE_REQ_HIL_010
-
-Scenario:
-    Attempt to set PSU to 20V (above MAX_VOLTAGE limit of 16V).
-    The BenchPowerSupply.set_voltage() must raise ValueError to protect hardware.
-
-On real HIL: the PSU itself also has hardware OVP (Over Voltage Protection);
-this test validates the software safety layer catches the error first.
-","3","test_power_supply_overvoltage_clamped","tests","2026-04-09","passed","2026-04-09","","test_hil_brake_controller","",""
-"","103","test_abs_logic[120-20-0]","tests","2026-04-09","passed","2026-04-09","TestStatusFlags","test_brake_controller","",""
+","63","test_fault_injection_with_uds_session_and_logging","functional_tests","2026-04-09","passed","2026-04-09","","test_hil_brake_controller","",""
 "
 HIL Test: Verify multiple DAQ channels can be sampled independently in one test.
 Polarion: SWE_REQ_HIL_013
@@ -161,58 +25,16 @@ Scenario:
     2. Assert each channel is independently within its own voltage spec.
 
 On real HIL: each channel maps to a unique NI DAQ physical input (Dev1/ai0..ai2).
-","0","test_signal_monitor_multi_channel_sampling","functional_tests","2026-04-09","passed","2026-04-09","","test_hil_brake_controller","",""
-"","102","test_abs_logic[120-90-1]","tests","2026-04-09","passed","2026-04-09","TestStatusFlags","test_brake_controller","",""
+","1","test_signal_monitor_multi_channel_sampling","functional_tests","2026-04-09","passed","2026-04-09","","test_hil_brake_controller","",""
 "
-HIL Test: Verify brake pressure sensor output voltage is within spec after braking.
-Polarion: SWE_REQ_HIL_012
+HIL Test: Verify the .asc log file is non-empty after CAN traffic is generated.
+Polarion: SWE_REQ_HIL_004
 
 Scenario:
-    1. Send a 50% brake pedal signal.
-    2. Sample the BRAKE_PRESSURE_V analog channel.
-    3. Assert voltage falls within the nominal sensor range [1.0V, 4.0V].
-
-Sensor spec: 0% pedal → 0.5V, 100% pedal → 4.5V (linear).
-At 50%: expected ~2.5V (center of range).
-
-On real HIL: DAQ task reads NI Dev1/ai0 and returns actual measured voltage.
-Mock value 2.5V simulates the expected midpoint output.
-","106","test_signal_monitor_brake_pressure_voltage_in_range","tests","2026-04-09","passed","2026-04-09","","test_hil_brake_controller","",""
-"0x00 input: ECU must respond with zero pressure.","0","test_zero_pedal","functional_tests","2026-04-09","passed","2026-04-09","TestPedalBoundary","test_brake_controller","",""
-"
-HIL Test: Verify brake wear warning bit is set when wear > 90%.
-Polarion: SWE_REQ_HIL_019
-
-Scenario:
-    1. Send Pad Wear > 90% via CAN.
-    2. Apply brake pedal.
-    3. Verify the ECU responds with status frame (0x400) where the Wear bit (Bit 3) is active.
-","103","test_brake_wear_warning_activation","functional_tests","2026-04-09","passed","2026-04-09","","test_hil_brake_controller","",""
-"
-HIL Test: Verify that opening a UDS Extended Session does not disrupt normal CAN traffic.
-Polarion: SWE_REQ_HIL_001
-
-Scenario:
-    1. uds_session fixture opens an Extended Diagnostic Session (SID 0x10 subFn 0x03).
-    2. A brake pedal message (0x200) is sent during the active session.
-    3. Verify the ECU still responds correctly on 0x300 (session must not block ASW).
-","1","test_uds_session_opens_and_nominal_can_still_works","functional_tests","2026-04-09","passed","2026-04-09","","test_hil_brake_controller","",""
-"Verify Brake Overheat flag is set when temperature > 200°C.","105","test_brake_overheat_warning","functional_tests","2026-04-09","passed","2026-04-09","TestStatusFlags","test_brake_controller","",""
-"0x64 (100%): maximum valid value — must not be clamped or rejected.","1","test_exact_max","tests","2026-04-09","passed","2026-04-09","TestPedalBoundary","test_brake_controller","",""
-"0x00 input: ECU must respond with zero pressure.","1","test_zero_pedal","tests","2026-04-09","passed","2026-04-09","TestPedalBoundary","test_brake_controller","",""
-"
-HIL Test: Verify ECU silence when brake sensor line has an open circuit fault.
-Polarion: SWE_REQ_HIL_006
-
-Scenario:
-    1. Inject OPEN_CIRCUIT on BRAKE_SENSOR_A (simulated: virtual bus ignores this).
-    2. Send a brake pedal message — in virtual mode the ECU still responds.
-    3. Assert fault controller confirms the fault was applied.
-
-On real HIL: an open circuit on the sensor wire would prevent the ECU from
-receiving a valid pedal signal, resulting in a safe-state (0% pedal) response.
-The test assertion would then check for the safe-state response value instead.
-","0","test_fault_injection_open_circuit_no_response","functional_tests","2026-04-09","broken","2026-04-09","","test_hil_brake_controller","",""
+    1. Generate several speed + brake CAN frames.
+    2. After notifier teardown (fixture cleanup), the file must contain content.
+    Note: We read the file size *before* teardown as a pre-check.
+","256","test_can_logger_file_is_written_after_traffic","functional_tests","2026-04-09","passed","2026-04-09","","test_hil_brake_controller","",""
 "
 HIL Test: Verify the uds_session fixture sends the DefaultSession close frame on teardown.
 Polarion: SWE_REQ_HIL_002
@@ -230,26 +52,7 @@ Scenario:
     1. Send Pad Wear > 90% via CAN.
     2. Apply brake pedal.
     3. Verify the ECU responds with status frame (0x400) where the Wear bit (Bit 3) is active.
-","102","test_brake_wear_warning_activation","tests","2026-04-09","passed","2026-04-09","","test_hil_brake_controller","",""
-"
-HIL Test: Verify assert_in_range raises AssertionError when a sample is out of spec.
-Polarion: SWE_REQ_HIL_014
-
-Scenario:
-    Inject a deliberately out-of-spec voltage (6.0V on a 0–5V channel) and
-    confirm the DAQ assertion catches it. This validates the test infrastructure
-    itself — a necessary step in HIL framework qualification (ISO 26262 Part 6).
-","1","test_signal_monitor_assert_in_range_detects_fault","tests","2026-04-09","passed","2026-04-09","","test_hil_brake_controller","",""
-"
-HIL Test: Verify multiple DAQ channels can be sampled independently in one test.
-Polarion: SWE_REQ_HIL_013
-
-Scenario:
-    1. Sample supply voltage, brake pressure, and CAN transceiver reference.
-    2. Assert each channel is independently within its own voltage spec.
-
-On real HIL: each channel maps to a unique NI DAQ physical input (Dev1/ai0..ai2).
-","1","test_signal_monitor_multi_channel_sampling","tests","2026-04-09","passed","2026-04-09","","test_hil_brake_controller","",""
+","102","test_brake_wear_warning_activation","functional_tests","2026-04-09","passed","2026-04-09","","test_hil_brake_controller","",""
 "
 HIL Test: Verify fault is cleared by fixture teardown even if test raises.
 Polarion: SWE_REQ_HIL_007
@@ -263,76 +66,20 @@ Scenario:
     2. Assert fault is active mid-test.
     3. Test passes — teardown will call controller.clear(""ALL"").
     The fixture teardown in conftest guarantees clear() runs even on exception.
-","0","test_fault_injection_teardown_always_clears","functional_tests","2026-04-09","broken","2026-04-09","","test_hil_brake_controller","",""
+","0","test_fault_injection_teardown_always_clears","functional_tests","2026-04-09","passed","2026-04-09","","test_hil_brake_controller","",""
 "
-HIL Test: Verify ECU recovers and resumes normal operation after a power cycle.
-Polarion: SWE_REQ_HIL_011
+HIL Test: Verify ECU silence when brake sensor line has an open circuit fault.
+Polarion: SWE_REQ_HIL_006
 
 Scenario:
-    1. Trigger an ignition cycle (PSU output OFF → 300ms → ON).
-    2. Wait for ECU boot time.
-    3. Send a brake pedal message and verify the ECU has recovered.
+    1. Inject OPEN_CIRCUIT on BRAKE_SENSOR_A (simulated: virtual bus ignores this).
+    2. Send a brake pedal message — in virtual mode the ECU still responds.
+    3. Assert fault controller confirms the fault was applied.
 
-On real HIL: simulates key-off / key-on cycle. ECU must complete bootstrap,
-re-initialise CAN driver, and transmit its first cyclic message within 500ms.
-","607","test_power_supply_ignition_cycle_ecu_recovers","tests","2026-04-09","passed","2026-04-09","","test_hil_brake_controller","",""
-"0x65 (just over limit): ECU must clamp to 0x64.","0","test_one_above_max","tests","2026-04-09","passed","2026-04-09","TestPedalBoundary","test_brake_controller","",""
-"
-HIL Test: Verify brake overheat warning bit is set when temperature > 200C.
-Polarion: SWE_REQ_HIL_018
-
-Scenario:
-    1. Inject brake temperature > 200C via CAN.
-    2. Apply brake pedal.
-    3. Verify the ECU responds with status frame (0x400) where the Overheat bit (Bit 1) is active.
-","101","test_brake_overheat_safe_state_logged","tests","2026-04-09","passed","2026-04-09","","test_hil_brake_controller","",""
-"
-HIL Test: Verify ECU behaviour under wire fault with active UDS session, fully logged.
-Polarion: SWE_REQ_HIL_016
-
-Fixtures used: fault_injection + uds_session + can_logger + can_bus + ecu_reset
-
-Scenario:
-    1. Open a UDS Extended Session (e.g. to enable DTC storage).
-    2. Inject a SHORT_TO_VBATT fault on the brake sensor line.
-    3. Send a brake pedal message — ECU must still not crash (safe state).
-    4. Clear the fault.
-    5. Verify CAN traffic was captured throughout.
-
-This type of test validates fault tolerance during diagnostic activity —
-a critical ISO 26262 ASIL-B scenario for brake ECUs.
-","0","test_fault_injection_with_uds_session_and_logging","functional_tests","2026-04-09","broken","2026-04-09","","test_hil_brake_controller","",""
-"
-HIL Test: Verify ABS state is cleared after ignition cycle and DAQ shows nominal voltage.
-Polarion: SWE_REQ_HIL_017
-
-Fixtures used: power_supply + signal_monitor + can_bus + ecu_reset
-
-Scenario:
-    1. Activate ABS (speed=120km/h, pedal=90%).
-    2. Power cycle the ECU (simulates ignition off/on).
-    3. After boot, verify ABS is no longer active (state was reset).
-    4. Sample ECU supply voltage via DAQ and confirm it is back to nominal.
-","813","test_power_cycle_restores_abs_state","tests","2026-04-09","passed","2026-04-09","","test_hil_brake_controller","",""
-"
-HIL Test: Verify the uds_session fixture sends the DefaultSession close frame on teardown.
-Polarion: SWE_REQ_HIL_002
-
-Scenario:
-    After the test body, the uds_session fixture teardown sends SID 0x10 subFn 0x01.
-    This test delegates verification of the teardown to the fixture itself (print trace).
-    On real HIL: ECU replies 0x50 0x01 confirming return to default session.
-","0","test_uds_session_closes_gracefully","tests","2026-04-09","passed","2026-04-09","","test_hil_brake_controller","",""
-"
-HIL Test: Verify that CAN frames exchanged during a brake event are logged to disk.
-Polarion: SWE_REQ_HIL_003
-
-Scenario:
-    1. can_logger fixture attaches an ASCWriter notifier to can_bus.
-    2. A brake pedal signal is sent (0x200) triggering an ECU response (0x300, 0x400).
-    3. After the test, verify the .asc log file was created and is non-empty.
-","202","test_can_logger_captures_brake_frames","functional_tests","2026-04-09","passed","2026-04-09","","test_hil_brake_controller","",""
-"Verify Brake Wear flag is set when wear > 90%.","102","test_brake_wear_warning","functional_tests","2026-04-09","passed","2026-04-09","TestStatusFlags","test_brake_controller","",""
+On real HIL: an open circuit on the sensor wire would prevent the ECU from
+receiving a valid pedal signal, resulting in a safe-state (0% pedal) response.
+The test assertion would then check for the safe-state response value instead.
+","1","test_fault_injection_open_circuit_no_response","functional_tests","2026-04-09","passed","2026-04-09","","test_hil_brake_controller","",""
 "
 HIL Test: Verify ECU still processes brake pedal at 9V (discharged battery).
 Polarion: SWE_REQ_HIL_009
@@ -345,28 +92,52 @@ Scenario:
 
 On real HIL: PSU SCPI command ""VOLT 9.00"" is issued over VISA.
 ECU supply rail drops; current draw typically increases slightly.
-","102","test_power_supply_low_voltage_ecu_still_responds","tests","2026-04-09","passed","2026-04-09","","test_hil_brake_controller","",""
+","110","test_power_supply_low_voltage_ecu_still_responds","functional_tests","2026-04-09","passed","2026-04-09","","test_hil_brake_controller","",""
 "
-HIL Test: Verify fault injection controller correctly applies SHORT_TO_GROUND.
-Polarion: SWE_REQ_HIL_005
+HIL Test: Verify PSU rejects voltages above MAX_VOLTAGE (16V) as a safety guard.
+Polarion: SWE_REQ_HIL_010
 
 Scenario:
-    1. Inject a SHORT_TO_GROUND fault on the CAN_H line.
-    2. Assert the controller reports the active fault type.
-    3. Clear the fault and verify state returns to NONE.
+    Attempt to set PSU to 20V (above MAX_VOLTAGE limit of 16V).
+    The BenchPowerSupply.set_voltage() must raise ValueError to protect hardware.
 
-On real HIL: the relay board would physically short CAN_H to GND,
-causing bus-off errors or dominant bit stuffing violations.
-","3","test_fault_injection_short_to_ground_state","tests","2026-04-09","passed","2026-04-09","","test_hil_brake_controller","",""
-"","103","test_abs_logic[120-20-0]","functional_tests","2026-04-09","passed","2026-04-09","TestStatusFlags","test_brake_controller","",""
+On real HIL: the PSU itself also has hardware OVP (Over Voltage Protection);
+this test validates the software safety layer catches the error first.
+","0","test_power_supply_overvoltage_clamped","functional_tests","2026-04-09","passed","2026-04-09","","test_hil_brake_controller","",""
 "
-HIL Test: Verify power supply starts at 12V nominal and output is enabled.
-Polarion: SWE_REQ_HIL_008
+HIL Test: Verify brake overheat warning bit is set when temperature > 200C.
+Polarion: SWE_REQ_HIL_018
 
 Scenario:
-    The power_supply fixture initialises the PSU at NOMINAL_VOLTAGE (12.0V)
-    with output enabled. Assert the state before any test manipulation.
-","0","test_power_supply_nominal_voltage_on_start","functional_tests","2026-04-09","broken","2026-04-09","","test_hil_brake_controller","",""
+    1. Inject brake temperature > 200C via CAN.
+    2. Apply brake pedal.
+    3. Verify the ECU responds with status frame (0x400) where the Overheat bit (Bit 1) is active.
+","102","test_brake_overheat_safe_state_logged","functional_tests","2026-04-09","passed","2026-04-09","","test_hil_brake_controller","",""
+"Verify Brake Wear flag is set when wear > 90%.","103","test_brake_wear_warning","functional_tests","2026-04-09","passed","2026-04-09","TestStatusFlags","test_brake_controller","",""
+"
+HIL Test: Verify brake pressure sensor output voltage is within spec after braking.
+Polarion: SWE_REQ_HIL_012
+
+Scenario:
+    1. Send a 50% brake pedal signal.
+    2. Sample the BRAKE_PRESSURE_V analog channel.
+    3. Assert voltage falls within the nominal sensor range [1.0V, 4.0V].
+
+Sensor spec: 0% pedal → 0.5V, 100% pedal → 4.5V (linear).
+At 50%: expected ~2.5V (center of range).
+
+On real HIL: DAQ task reads NI Dev1/ai0 and returns actual measured voltage.
+Mock value 2.5V simulates the expected midpoint output.
+","101","test_signal_monitor_brake_pressure_voltage_in_range","functional_tests","2026-04-09","passed","2026-04-09","","test_hil_brake_controller","",""
+"
+HIL Test: Verify that opening a UDS Extended Session does not disrupt normal CAN traffic.
+Polarion: SWE_REQ_HIL_001
+
+Scenario:
+    1. uds_session fixture opens an Extended Diagnostic Session (SID 0x10 subFn 0x03).
+    2. A brake pedal message (0x200) is sent during the active session.
+    3. Verify the ECU still responds correctly on 0x300 (session must not block ASW).
+","0","test_uds_session_opens_and_nominal_can_still_works","functional_tests","2026-04-09","passed","2026-04-09","","test_hil_brake_controller","",""
 "
 HIL Test: Verify ABS activates correctly at low supply voltage, with CAN log.
 Polarion: SWE_REQ_HIL_015
@@ -382,35 +153,7 @@ Scenario:
 
 This is a typical compound HIL test: electrical stress + functional verification
 + full traffic capture for traceability.
-","208","test_low_voltage_abs_activation_logged","tests","2026-04-09","passed","2026-04-09","","test_hil_brake_controller","",""
-"","102","test_abs_logic[30-90-0]","tests","2026-04-09","passed","2026-04-09","TestStatusFlags","test_brake_controller","",""
-"","102","test_abs_logic[120-90-1]","functional_tests","2026-04-09","passed","2026-04-09","TestStatusFlags","test_brake_controller","",""
-"
-HIL Test: Verify ECU still processes brake pedal at 9V (discharged battery).
-Polarion: SWE_REQ_HIL_009
-
-Scenario:
-    1. Drop supply to 9V (minimum operating voltage per ISO 16750-2).
-    2. Send a brake pedal message.
-    3. Assert ECU still responds (it must operate down to 9V).
-    4. Restore 12V nominal.
-
-On real HIL: PSU SCPI command ""VOLT 9.00"" is issued over VISA.
-ECU supply rail drops; current draw typically increases slightly.
-","0","test_power_supply_low_voltage_ecu_still_responds","functional_tests","2026-04-09","broken","2026-04-09","","test_hil_brake_controller","",""
-"
-HIL Test: Verify fault injection controller correctly applies SHORT_TO_GROUND.
-Polarion: SWE_REQ_HIL_005
-
-Scenario:
-    1. Inject a SHORT_TO_GROUND fault on the CAN_H line.
-    2. Assert the controller reports the active fault type.
-    3. Clear the fault and verify state returns to NONE.
-
-On real HIL: the relay board would physically short CAN_H to GND,
-causing bus-off errors or dominant bit stuffing violations.
-","1","test_fault_injection_short_to_ground_state","functional_tests","2026-04-09","broken","2026-04-09","","test_hil_brake_controller","",""
-"0x64 (100%): maximum valid value — must not be clamped or rejected.","9","test_exact_max","functional_tests","2026-04-09","passed","2026-04-09","TestPedalBoundary","test_brake_controller","",""
+","202","test_low_voltage_abs_activation_logged","functional_tests","2026-04-09","passed","2026-04-09","","test_hil_brake_controller","",""
 "
 HIL Test: Verify ABS state is cleared after ignition cycle and DAQ shows nominal voltage.
 Polarion: SWE_REQ_HIL_017
@@ -422,16 +165,58 @@ Scenario:
     2. Power cycle the ECU (simulates ignition off/on).
     3. After boot, verify ABS is no longer active (state was reset).
     4. Sample ECU supply voltage via DAQ and confirm it is back to nominal.
-","1","test_power_cycle_restores_abs_state","functional_tests","2026-04-09","broken","2026-04-09","","test_hil_brake_controller","",""
+","810","test_power_cycle_restores_abs_state","functional_tests","2026-04-09","passed","2026-04-09","","test_hil_brake_controller","",""
+"Verify Brake Overheat flag is set when temperature > 200°C.","103","test_brake_overheat_warning","functional_tests","2026-04-09","passed","2026-04-09","TestStatusFlags","test_brake_controller","",""
+"0x65 (just over limit): ECU must clamp to 0x64.","1","test_one_above_max","functional_tests","2026-04-09","passed","2026-04-09","TestPedalBoundary","test_brake_controller","",""
 "
-HIL Test: Verify brake overheat warning bit is set when temperature > 200C.
-Polarion: SWE_REQ_HIL_018
+HIL Test: Verify temperature sensor analog range mapping.
+Polarion: SWE_REQ_HIL_020
 
 Scenario:
-    1. Inject brake temperature > 200C via CAN.
-    2. Apply brake pedal.
-    3. Verify the ECU responds with status frame (0x400) where the Overheat bit (Bit 1) is active.
-","102","test_brake_overheat_safe_state_logged","functional_tests","2026-04-09","passed","2026-04-09","","test_hil_brake_controller","",""
+    1. Sample the BRAKE_TEMP_V analog channel.
+    2. Assert voltage falls within the nominal sensor range [0.5V, 4.5V].
+","0","test_signal_monitor_temp_sensor_range","functional_tests","2026-04-09","passed","2026-04-09","","test_hil_brake_controller","",""
+"","102","test_abs_logic[30-90-0]","functional_tests","2026-04-09","passed","2026-04-09","TestStatusFlags","test_brake_controller","",""
+"","102","test_abs_logic[120-90-1]","functional_tests","2026-04-09","passed","2026-04-09","TestStatusFlags","test_brake_controller","",""
+"
+HIL Test: Verify assert_in_range raises AssertionError when a sample is out of spec.
+Polarion: SWE_REQ_HIL_014
+
+Scenario:
+    Inject a deliberately out-of-spec voltage (6.0V on a 0–5V channel) and
+    confirm the DAQ assertion catches it. This validates the test infrastructure
+    itself — a necessary step in HIL framework qualification (ISO 26262 Part 6).
+","2","test_signal_monitor_assert_in_range_detects_fault","functional_tests","2026-04-09","passed","2026-04-09","","test_hil_brake_controller","",""
+"
+HIL Test: Verify that CAN frames exchanged during a brake event are logged to disk.
+Polarion: SWE_REQ_HIL_003
+
+Scenario:
+    1. can_logger fixture attaches an ASCWriter notifier to can_bus.
+    2. A brake pedal signal is sent (0x200) triggering an ECU response (0x300, 0x400).
+    3. After the test, verify the .asc log file was created and is non-empty.
+","204","test_can_logger_captures_brake_frames","functional_tests","2026-04-09","passed","2026-04-09","","test_hil_brake_controller","",""
+"
+HIL Test: Verify power supply starts at 12V nominal and output is enabled.
+Polarion: SWE_REQ_HIL_008
+
+Scenario:
+    The power_supply fixture initialises the PSU at NOMINAL_VOLTAGE (12.0V)
+    with output enabled. Assert the state before any test manipulation.
+","1","test_power_supply_nominal_voltage_on_start","functional_tests","2026-04-09","passed","2026-04-09","","test_hil_brake_controller","",""
+"0x00 input: ECU must respond with zero pressure.","1","test_zero_pedal","functional_tests","2026-04-09","passed","2026-04-09","TestPedalBoundary","test_brake_controller","",""
+"
+HIL Test: Verify fault injection controller correctly applies SHORT_TO_GROUND.
+Polarion: SWE_REQ_HIL_005
+
+Scenario:
+    1. Inject a SHORT_TO_GROUND fault on the CAN_H line.
+    2. Assert the controller reports the active fault type.
+    3. Clear the fault and verify state returns to NONE.
+
+On real HIL: the relay board would physically short CAN_H to GND,
+causing bus-off errors or dominant bit stuffing violations.
+","0","test_fault_injection_short_to_ground_state","functional_tests","2026-04-09","passed","2026-04-09","","test_hil_brake_controller","",""
 "
 HIL Test: Verify ECU recovers and resumes normal operation after a power cycle.
 Polarion: SWE_REQ_HIL_011
@@ -444,20 +229,4 @@ Scenario:
 On real HIL: simulates key-off / key-on cycle. ECU must complete bootstrap,
 re-initialise CAN driver, and transmit its first cyclic message within 500ms.
 ","605","test_power_supply_ignition_cycle_ecu_recovers","functional_tests","2026-04-09","passed","2026-04-09","","test_hil_brake_controller","",""
-"","102","test_abs_logic[30-90-0]","functional_tests","2026-04-09","passed","2026-04-09","TestStatusFlags","test_brake_controller","",""
-"
-HIL Test: Verify ABS activates correctly at low supply voltage, with CAN log.
-Polarion: SWE_REQ_HIL_015
-
-Fixtures used: power_supply + can_logger + can_bus + ecu_reset
-
-Scenario:
-    1. Drop supply to 9V (battery drain simulation).
-    2. Set speed > 100 km/h AND pedal > 80% → ABS must activate.
-    3. Log all CAN traffic during the test.
-    4. Assert ABS bit (Bit 0) is set in status frame (0x400).
-    5. Restore nominal voltage.
-
-This is a typical compound HIL test: electrical stress + functional verification
-+ full traffic capture for traceability.
-","1","test_low_voltage_abs_activation_logged","functional_tests","2026-04-09","broken","2026-04-09","","test_hil_brake_controller","",""
+"0x64 (100%): maximum valid value — must not be clamped or rejected.","0","test_exact_max","functional_tests","2026-04-09","passed","2026-04-09","TestPedalBoundary","test_brake_controller","",""

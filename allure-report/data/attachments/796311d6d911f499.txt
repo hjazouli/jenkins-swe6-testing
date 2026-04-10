@@ -1,3 +1,0 @@
-[Virtual ECU] Received Brake Pedal: 50%
-ℹ️  CAN log will be saved to: capture_test_can_logger_captures_brake_frames.asc
-✅ PASSED: CAN logger is active and capturing frames.

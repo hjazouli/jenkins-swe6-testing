@@ -635,11 +635,7 @@ def test_brake_overheat_safe_state_logged(can_bus, can_logger, ecu_reset):
         3. Verify the ECU responds with status frame (0x400) where the Overheat bit (Bit 1) is active.
     """
     # 1. Send Brake Temp = 250C (0x220)
-    can_bus.send(can.Message(
-        arbitration_id=0x220,
-        data=[250],
-        is_extended_id=False
-    ))
+    can_bus.send(can.Message(arbitration_id=0x220, data=[250], is_extended_id=False))
     time.sleep(0.1)
 
     # 2. Trigger brake to get status
@@ -647,9 +643,9 @@ def test_brake_overheat_safe_state_logged(can_bus, can_logger, ecu_reset):
     status_msg = _recv_until(can_bus, arb_id=0x400)
 
     assert status_msg is not None, "ECU did not send status!"
-    assert (status_msg.data[0] & 0x02) == 0x02, (
-        f"Overheat bit should be set at 250C. Got: {status_msg.data[0]:#04x}"
-    )
+    assert (
+        status_msg.data[0] & 0x02
+    ) == 0x02, f"Overheat bit should be set at 250C. Got: {status_msg.data[0]:#04x}"
 
     print(f"✅ PASSED: Brake overheat recorded in log: {can_logger}")
 
@@ -665,11 +661,7 @@ def test_brake_wear_warning_activation(can_bus, can_logger, ecu_reset):
         3. Verify the ECU responds with status frame (0x400) where the Wear bit (Bit 3) is active.
     """
     # 1. Send Brake Wear = 95% (0x240)
-    can_bus.send(can.Message(
-        arbitration_id=0x240,
-        data=[95],
-        is_extended_id=False
-    ))
+    can_bus.send(can.Message(arbitration_id=0x240, data=[95], is_extended_id=False))
     time.sleep(0.1)
 
     # 2. Trigger brake to get status
@@ -677,9 +669,9 @@ def test_brake_wear_warning_activation(can_bus, can_logger, ecu_reset):
     status_msg = _recv_until(can_bus, arb_id=0x400)
 
     assert status_msg is not None, "ECU did not send status!"
-    assert (status_msg.data[0] & 0x08) == 0x08, (
-        f"Wear bit should be set at 95% wear. Got: {status_msg.data[0]:#04x}"
-    )
+    assert (
+        status_msg.data[0] & 0x08
+    ) == 0x08, f"Wear bit should be set at 95% wear. Got: {status_msg.data[0]:#04x}"
 
     print(f"✅ PASSED: Brake wear recorded in log: {can_logger}")
 
@@ -695,10 +687,9 @@ def test_signal_monitor_temp_sensor_range(can_bus, signal_monitor, ecu_reset):
     """
     # Sample temperature sensor voltage (mock: 3.5V for 250C)
     voltage = signal_monitor.sample("BRAKE_TEMP_V", mock_value=3.5)
-    
+
     # Assert within valid range [0.5V, 4.5V]
     assert 0.5 <= voltage <= 4.5, f"Brake temp voltage out of spec: {voltage}V"
     signal_monitor.assert_in_range("BRAKE_TEMP_V", low=0.5, high=4.5)
 
     print(f"✅ PASSED: BRAKE_TEMP_V = {voltage}V (within [0.5V, 4.5V]).")
-

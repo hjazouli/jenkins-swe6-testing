@@ -1,6 +1,0 @@
-[Virtual ECU] Resetting state...
-[HIL PSU] Starting power cycle...
-[HIL PSU] Power cycle complete. Output ENABLED.
-[Virtual ECU] Received Brake Pedal: 32%
-✅ PASSED: ECU recovered after ignition cycle.
-[HIL PSU] Voltage set to 12.0V

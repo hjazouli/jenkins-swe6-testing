@@ -1,7 +1,0 @@
-[Virtual ECU] Diagnostic Session Switch: 0x03
-
-[UDS] Switched to EXTENDED SESSION (0x03)
-ℹ️  uds_session teardown will send DefaultSession close frame after this test.
-✅ PASSED: UDS session fixture lifecycle verified.
-[Virtual ECU] Diagnostic Session Switch: 0x01
-[UDS] Switched to DEFAULT SESSION (0x01)

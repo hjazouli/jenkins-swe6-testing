@@ -1,2 +1,0 @@
-✅ PASSED: PSU correctly rejects overvoltage command.
-[HIL PSU] Voltage set to 12.0V

@@ -1,4 +1,0 @@
-[Virtual ECU] Updated VehSpeed: 80 km/h
-[Virtual ECU] Received Brake Pedal: 80%
-ℹ️  Log path verified: capture_test_can_logger_file_is_written_after_traffic.asc
-✅ PASSED: CAN logger file naming and path verified.

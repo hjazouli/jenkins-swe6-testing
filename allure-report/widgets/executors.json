@@ -1,1 +1,1 @@
-[{"name":"Jenkins","type":"jenkins","url":"http://localhost:8081/","buildOrder":36,"buildName":"SWE6-Test #36 - main - d0c438f","buildUrl":"http://localhost:8081/job/SWE6-Test/36/","reportName":"AllureReport","reportUrl":"http://localhost:8081/job/SWE6-Test/36/allure"}]
+[{"name":"Jenkins","type":"jenkins","url":"http://localhost:8081/","buildOrder":38,"buildName":"SWE6-Test #38 - main - 7ed36a4","buildUrl":"http://localhost:8081/job/SWE6-Test/38/","reportName":"AllureReport","reportUrl":"http://localhost:8081/job/SWE6-Test/38/allure"}]

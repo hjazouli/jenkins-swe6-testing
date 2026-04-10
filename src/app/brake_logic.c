@@ -1,63 +1,183 @@
 #include "brake_logic.h"
 
-/* Static state management for persistent data between frames */
-static uint8_t brake_warning_flag = 0;
+/* ========================================================================= */
+/*                          INTERNAL PERSISTENT STATE                         */
+/* ========================================================================= */
+static uint8_t fault_latch = 0x00;
+static uint8_t recovery_counter = 0;
+
+/* Plausibility states */
+static float last_vehicle_speed = 0.0f;
+static uint8_t plaus_counter = 0;
+
+/* ========================================================================= */
+/*                          STATIC FUNCTION PROTOTYPES                        */
+/* ========================================================================= */
+static void Hydraulic_Mapping_ABS_Inactive(float validated_pedal,
+                                           BrakeOutput_t *output);
+static void Fault_Latching_Overheat(const BrakeInput_t *input,
+                                    BrakeOutput_t *output);
+static void Thermal_Safety_Clamp(const BrakeInput_t *input,
+                                 BrakeOutput_t *output);
+static void Emergency_Stop_Assistance(const BrakeInput_t *input,
+                                      BrakeOutput_t *output);
+static void Rolling_Plausibility_Check(const BrakeInput_t *input,
+                                       BrakeOutput_t *output);
+
+/* ========================================================================= */
+/*                          PUBLIC INTERFACE FUNCTIONS                        */
+/* ========================================================================= */
 
 /**
- * Brake_Control_Step: SWE.6 Functional Logic (ASW)
- * This function calculates the target hydraulic pressure based on user input,
- * vehicle speed, and wheel slip to prevent wheel lockup (ABS).
- *
- * Requirements covered: SWE_REQ_002, SWE_REQ_003, SWE_REQ_005, SWE_REQ_006
+ * @brief Initialize the Brake Control internal state.
+ * @requirement SWE_REQ_001
  */
-void Brake_Control_Step(const BrakeInput_t* input, BrakeOutput_t* output) {
-    /* ---------------------------------------------------------------
-     * 1. Input Clamping (SWE_REQ_003: Safety rejection of OOB inputs)
-     * --------------------------------------------------------------- */
-    float validated_pedal = input->pedal_force;
-    if (validated_pedal > 100.0f) {
-        validated_pedal = 100.0f;
-    } else if (validated_pedal < 0.0f) {
-        validated_pedal = 0.0f;
+void Brake_Control_Init(BrakeOutput_t *output) {
+  if (output == (void *)0)
+    return;
+
+  output->hydraulic_pressure = 0.0f;
+  output->abs_active = 0;
+  output->status_flag = 0x00;
+
+  /* Reset internal latches */
+  fault_latch = 0x00;
+  recovery_counter = 0;
+
+  /* Reset plausibility */
+  last_vehicle_speed = 0.0f;
+  plaus_counter = 0;
+}
+
+/**
+ * @brief Main Periodic Task (ASW Logic Step). Called every 10ms.
+ * @requirement SWE_REQ_002, SWE_REQ_003, SWE_REQ_006, SWE_REQ_007, SWE_REQ_008,
+ * SWE_REQ_010, SWE_REQ_011
+ */
+void Brake_Control_Step(const BrakeInput_t *input, BrakeOutput_t *output) {
+  if ((input == (void *)0) || (output == (void *)0))
+    return;
+
+  /* -----------------------------------------------------------------------
+   * 1. INPUT VALIDATION & CLAMPING (SWE_REQ_003)
+   * ----------------------------------------------------------------------- */
+  float validated_pedal = input->pedal_force;
+  if (validated_pedal > 100.0f) {
+    validated_pedal = 100.0f;
+  } else if (validated_pedal < 0.0f) {
+    validated_pedal = 0.0f;
+  }
+
+  /* -----------------------------------------------------------------------
+   * 2. ABS & HYDRAULIC CONTROL (SWE_REQ_002, SWE_REQ_004)
+   * ----------------------------------------------------------------------- */
+  if (input->vehicle_speed > 100.0f && validated_pedal > 80.0f) {
+    output->hydraulic_pressure =
+        validated_pedal * ABS_PRESSURE_REDUCTION_FACTOR;
+    output->abs_active = 1;
+  } else {
+    output->abs_active = 0;
+    Hydraulic_Mapping_ABS_Inactive(validated_pedal, output);
+  }
+
+  /* -----------------------------------------------------------------------
+   * 3. DIAGNOSTICS & STATUS MONITORING (SWE_REQ_006, SWE_REQ_007, SWE_REQ_011)
+   * ----------------------------------------------------------------------- */
+  output->status_flag = 0x00;
+
+  if (output->abs_active) {
+    output->status_flag |= 0x01;
+  }
+
+  if (input->sensor_wear_volt > BRAKE_WEAR_VOLTAGE_THRESHOLD) {
+    output->status_flag |= 0x08;
+  }
+
+  Fault_Latching_Overheat(input, output);
+  Rolling_Plausibility_Check(input, output);
+
+  /* -----------------------------------------------------------------------
+   * 4. SAFETY REACTIONS & ASSISTANCE (SWE_REQ_008, SWE_REQ_010)
+   * ----------------------------------------------------------------------- */
+  Emergency_Stop_Assistance(input, output);
+  Thermal_Safety_Clamp(input, output);
+}
+
+/* ========================================================================= */
+/*                          INTERNAL HELPER FUNCTIONS                         */
+/* ========================================================================= */
+
+/**
+ * @brief Handles 1:1 pressure mapping for non-ABS scenarios.
+ * @requirement SWE_REQ_004
+ */
+static void Hydraulic_Mapping_ABS_Inactive(float validated_pedal,
+                                           BrakeOutput_t *output) {
+  if (output->abs_active == 0) {
+    output->hydraulic_pressure = validated_pedal;
+  }
+}
+
+/**
+ * @brief Implements the 3-frame fault latching logic for thermal safety.
+ * @requirement SWE_REQ_007
+ */
+static void Fault_Latching_Overheat(const BrakeInput_t *input,
+                                    BrakeOutput_t *output) {
+  if (input->brake_temp_celsius > BRAKE_OVERHEAT_THRESHOLD_C) {
+    fault_latch |= 0x02;
+    recovery_counter = 0;
+  } else {
+    if (fault_latch & 0x02) {
+      recovery_counter++;
+      if (recovery_counter >= 3) {
+        fault_latch &= ~0x02;
+        recovery_counter = 0;
+      }
     }
+  }
+  output->status_flag |= fault_latch;
+}
 
-    /* ---------------------------------------------------------------
-     * 2. ABS Logic (SWE_REQ_002)
-     * Activates when speed > 100 km/h AND pedal force > 80%
-     * (high-speed hard-braking scenario → risk of wheel lockup)
-     * --------------------------------------------------------------- */
-    if (input->vehicle_speed > 100.0f && validated_pedal > 80.0f) {
-        /* ABS Intervention: Reduce target pressure to avoid total lock */
-        output->hydraulic_pressure = validated_pedal * ABS_PRESSURE_REDUCTION_FACTOR;
-        output->abs_active = 1;
-    } else {
-        /* Normal braking */
-        output->hydraulic_pressure = validated_pedal;
-        output->abs_active = 0;
+/**
+ * @brief Handes brake protection when they are hot (Safety Clamp).
+ * @requirement SWE_REQ_008
+ */
+static void Thermal_Safety_Clamp(const BrakeInput_t *input,
+                                 BrakeOutput_t *output) {
+  if ((output->status_flag & 0x02) && (output->hydraulic_pressure > 50.0f)) {
+    output->hydraulic_pressure = 50.0f;
+  }
+}
+
+/**
+ * @brief Handles emergency stop assistance when the driver slams the brakes.
+ * @requirement SWE_REQ_010
+ */
+static void Emergency_Stop_Assistance(const BrakeInput_t *input,
+                                      BrakeOutput_t *output) {
+  if (input->pedal_force > 90.0f && input->vehicle_speed > 60.0f) {
+    output->hydraulic_pressure = 100.0f;
+  }
+}
+
+/**
+ * @brief Detect if the pedal sensor is stuck or giving "impossible" data.
+ * @requirement SWE_REQ_011
+ */
+static void Rolling_Plausibility_Check(const BrakeInput_t *input,
+                                       BrakeOutput_t *output) {
+  /* Condition: Pedal is pressed hard but speed is NOT decreasing (>=) */
+  if ((input->vehicle_speed >= last_vehicle_speed) &&
+      (input->pedal_force > 50.0f)) {
+    plaus_counter++;
+    if (plaus_counter >= 5) {
+      output->status_flag |= 0x10; // Bit 4 for Stuck Pedal Error
     }
+  } else {
+    plaus_counter = 0;
+  }
 
-    /* ---------------------------------------------------------------
-     * 3. Re-evaluate warning flags fresh each cycle (no permanent latch)
-     *    This allows flags to self-clear once the fault condition resolves.
-     * --------------------------------------------------------------- */
-    brake_warning_flag = 0x00;
-
-    /* SWE_REQ_006: Wear Monitoring
-     * Bit 3 (0x08): sensor_wear_volt > BRAKE_WEAR_VOLTAGE_THRESHOLD → 90% worn */
-    if (input->sensor_wear_volt > BRAKE_WEAR_VOLTAGE_THRESHOLD) {
-        brake_warning_flag |= 0x08;
-    }
-
-    /* SWE_REQ_005: Overheat Monitoring
-     * Bit 1 (0x02): brake_temp_celsius > BRAKE_OVERHEAT_THRESHOLD_C → Overheat */
-    if (input->brake_temp_celsius > BRAKE_OVERHEAT_THRESHOLD_C) {
-        brake_warning_flag |= 0x02;
-    }
-
-    /* Bit 0 (0x01): Mirror ABS active state into the status flag */
-    if (output->abs_active) {
-        brake_warning_flag |= 0x01;
-    }
-
-    output->status_flag = brake_warning_flag;
+  /* Update for next cycle comparison */
+  last_vehicle_speed = input->vehicle_speed;
 }

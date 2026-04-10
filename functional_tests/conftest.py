@@ -203,7 +203,6 @@ def can_bus():
     """Initialize Virtual CAN interface."""
     # Test bus instance
     bus = can.interface.Bus(channel="vbus_shared", interface="virtual")
-
     # Separate bus instance for the ECU
     ecu_bus = can.interface.Bus(channel="vbus_shared", interface="virtual")
 

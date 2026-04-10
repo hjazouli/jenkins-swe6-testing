@@ -1,8 +1,0 @@
-[Virtual ECU] Resetting state...
-[HIL FI] Injecting OPEN_CIRCUIT on BRAKE_SENSOR_A
-[Virtual ECU] Received Brake Pedal: 80%
-ℹ️  [Virtual] ECU responded with: 80
-ℹ️  On real HIL: assert no response or safe-state (0x00) pressure output.
-[HIL FI] Clearing faults on BRAKE_SENSOR_A
-✅ PASSED: Fault injection open circuit scenario executed.
-[HIL FI] Clearing faults on ALL

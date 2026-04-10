@@ -1,4 +1,0 @@
-[Virtual ECU] Resetting state...
-✅ PASSED: BRAKE_TEMP_V = 3.5V (within [0.5V, 4.5V]).
-
-[Virtual ECU] Shutdown.
