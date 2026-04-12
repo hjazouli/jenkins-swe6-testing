@@ -64,3 +64,8 @@ build/
 allure-results/
 allure-report/
 capture_*.asc
+*.o
+*.elf
+*.hex
+*.bin
+*.map

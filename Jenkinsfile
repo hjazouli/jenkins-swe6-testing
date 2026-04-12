@@ -99,6 +99,13 @@ pipeline {
             }
         }
         
+        stage('Quality & Compliance (Axivion Style)') {
+            steps {
+                echo '🔍 Verifying MISRA-C and Architecture Compliance...'
+                sh ".venv/bin/python3 scripts/quality_suite.py"
+            }
+        }
+        
         stage('Run Pytest Suite (Virtual CAN)') {
             steps {
                 echo '🧪 Executing automated tests in sandbox...'
@@ -139,7 +146,7 @@ pipeline {
     post {
         always {
             junit 'test-results.xml'
-            archiveArtifacts artifacts: 'build/firmware.elf, build/c-coverage.xml, coverage.xml'
+            archiveArtifacts artifacts: 'build/firmware.elf, build/c-coverage.xml, coverage.xml, build/quality-report.html'
             allure includeProperties: false, jdk: '', results: [[path: 'allure-results']]
             
             // Note: In a real Jenkins instance, you would use 'cobertura coberturaReportFile: "build/c-coverage.xml"'

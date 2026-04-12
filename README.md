@@ -70,7 +70,8 @@ The pipeline is designed for **Zero-Touch Automation**. Every commit triggers a 
 3.  **Stage: Unit Tests (C)**: Uses `Make` to compile and run all Unity tests with coverage instrumentation.
 4.  **Stage: Coverage (C)**: Invokes `gcovr` to generate `build/c-coverage.xml`.
 5.  **Stage: Linting**: Runs `pylint` on Python scripts and tests to ensure code quality.
-6.  **Stage: Functional Tests**: Executes the full `pytest` suite on the Virtual CAN bus.
+6.  **Stage: Quality Suite (Axivion Style)**: A professional static analysis suite that checks MISRA components, architecture layer violations, and generates a visual HTML compliance dashboard.
+7.  **Stage: Functional Tests**: Executes the full `pytest` suite on the Virtual CAN bus.
 7.  **Stage: Reporting**:
     *   **JUnit**: Uploads `test-results.xml` for Jenkins dashboard.
     *   **Allure**: Generates interactive visual historical reports.

@@ -156,9 +156,10 @@ static void Thermal_Safety_Clamp(const BrakeInput_t *input,
  * @brief Handles emergency stop assistance when the driver slams the brakes.
  * @requirement SWE_REQ_010
  */
-static void Emergency_Stop_Assistance(const BrakeInput_t *input,
-                                      BrakeOutput_t *output) {
-  if (input->pedal_force > 90.0f && input->vehicle_speed > 60.0f) {
+static void Emergency_Stop_Assistance(const BrakeInput_t *input, BrakeOutput_t *output) 
+{
+  if (input->pedal_force > 90.0f && input->vehicle_speed > 60.0f) 
+  {
     output->hydraulic_pressure = 100.0f;
   }
 }
@@ -167,16 +168,20 @@ static void Emergency_Stop_Assistance(const BrakeInput_t *input,
  * @brief Detect if the pedal sensor is stuck or giving "impossible" data.
  * @requirement SWE_REQ_011
  */
-static void Rolling_Plausibility_Check(const BrakeInput_t *input,
-                                       BrakeOutput_t *output) {
+static void Rolling_Plausibility_Check(const BrakeInput_t *input,BrakeOutput_t *output) 
+{
   /* Condition: Pedal is pressed hard but speed is NOT decreasing (>=) */
-  if ((input->vehicle_speed >= last_vehicle_speed) && (input->pedal_force > 50.0f)) {
+
+  if ((input->vehicle_speed >= last_vehicle_speed) && (input->pedal_force > 50.0f)) 
+  {
     plaus_counter++;
     if (plaus_counter >= 5) {
       plaus_latch = 0x10;
       plaus_recovery_counter = 0;
     }
-  } else {
+  } 
+  
+  else {
     plaus_counter = 0;
     /* Recovery logic: Must see decreasing speed for 3 frames to clear */
     if (plaus_latch & 0x10) {
