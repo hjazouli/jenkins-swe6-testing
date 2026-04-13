@@ -9,11 +9,11 @@ void setUp(void) {
 
 void tearDown(void) {}
 
-/**
- * test_Brake_Control_Step_NormalBraking:
- * Scenario: Medium pedal force and speed. 
- * Expected: Hydraulic pressure matches pedal force. No ABS. No warnings.
- */
+/* ========================================================================= */
+/* test_Brake_Control_Step_NormalBraking:
+/* Scenario: Medium pedal force and speed. 
+/* Expected: Hydraulic pressure matches pedal force. No ABS. No warnings.
+/* ========================================================================= */
 void test_Brake_Control_Step_NormalBraking(void) {
     BrakeInput_t input = { 
         .pedal_force = 50.0f, 
@@ -31,11 +31,11 @@ void test_Brake_Control_Step_NormalBraking(void) {
     TEST_ASSERT_EQUAL_UINT8(0, output.status_flag);
 }
 
-/**
- * test_Brake_Control_Step_ABSIntervention:
- * Scenario: High speed (>100) and high pedal force (>80).
- * Expected: ABS activates, pressure reduced, status bit 0 set.
- */
+/* ========================================================================= */
+/* test_Brake_Control_Step_ABSIntervention:
+/* Scenario: High speed (>100) and high pedal force (>80).
+/* Expected: ABS activates, pressure reduced, status bit 0 set.
+/* ========================================================================= */
 void test_Brake_Control_Step_ABSIntervention(void) {
     BrakeInput_t input = { 
         .pedal_force = 90.0f, 
@@ -53,11 +53,11 @@ void test_Brake_Control_Step_ABSIntervention(void) {
     TEST_ASSERT_BIT_HIGH(0, output.status_flag); 
 }
 
-/**
- * test_Brake_Control_Step_ABSEdgeCases:
- * Scenario: Testing exact boundaries for ABS (100km/h, 80% pedal).
- * Expected: ABS only activates ABOVE these thresholds.
- */
+/* ========================================================================= */
+/* test_Brake_Control_Step_ABSEdgeCases:
+/* Scenario: Testing exact boundaries for ABS (100km/h, 80% pedal).
+/* Expected: ABS only activates ABOVE these thresholds.
+/* ========================================================================= */
 void test_Brake_Control_Step_ABSEdgeCases(void) {
     BrakeInput_t input = { .sensor_wear_volt = 1.0f, .brake_temp_celsius = 50.0f };
     BrakeOutput_t output;
@@ -75,11 +75,11 @@ void test_Brake_Control_Step_ABSEdgeCases(void) {
     TEST_ASSERT_EQUAL_UINT8(1, output.abs_active);
 }
 
-/**
- * test_Brake_Control_Step_Warnings:
- * Scenario: Voltage and temperature above thresholds.
- * Expected: Warning bits set correctly (Bit 1 for Overheat, Bit 3 for Wear).
- */
+/* ========================================================================= */
+/* test_Brake_Control_Step_Warnings:
+/* Scenario: Voltage and temperature above thresholds.
+/* Expected: Warning bits set correctly (Bit 1 for Overheat, Bit 3 for Wear).
+/* ========================================================================= */
 void test_Brake_Control_Step_Warnings(void) {
     BrakeInput_t input = { 
         .pedal_force = 10.0f, 
@@ -95,10 +95,10 @@ void test_Brake_Control_Step_Warnings(void) {
     TEST_ASSERT_EQUAL_UINT8(0x0A, output.status_flag); 
 }
 
-/**
- * test_Brake_Control_Step_ThresholdBoundaries:
- * Scenario: Values exactly on the threshold.
- */
+/* ========================================================================= */
+/* test_Brake_Control_Step_ThresholdBoundaries:
+/* Scenario: Values exactly on the threshold.
+/* ========================================================================= */
 void test_Brake_Control_Step_ThresholdBoundaries(void) {
     BrakeInput_t input = { .pedal_force = 10.0f, .vehicle_speed = 10.0f };
     BrakeOutput_t output;
@@ -109,10 +109,10 @@ void test_Brake_Control_Step_ThresholdBoundaries(void) {
     TEST_ASSERT_BIT_LOW(3, output.status_flag);
 }
 
-/**
- * test_Brake_Control_Step_Clamping:
- * Scenario: OOB inputs.
- */
+/* ========================================================================= */
+/* test_Brake_Control_Step_Clamping:
+/* Scenario: OOB inputs.
+/* ========================================================================= */
 void test_Brake_Control_Step_Clamping(void) {
     BrakeInput_t input = { .vehicle_speed = 50.0f };
     BrakeOutput_t output;
@@ -122,10 +122,10 @@ void test_Brake_Control_Step_Clamping(void) {
     TEST_ASSERT_EQUAL_FLOAT(100.0f, output.hydraulic_pressure);
 }
 
-/**
- * test_Brake_Control_Step_DebounceRecovery:
- * Scenario: Overheat occurs, then temperature drops. 
- */
+/* ========================================================================= */
+/* test_Brake_Control_Step_DebounceRecovery:
+/* Scenario: Overheat occurs, then temperature drops. 
+/* ========================================================================= */
 void test_Brake_Control_Step_DebounceRecovery(void) {
     BrakeInput_t input = { .pedal_force = 10.0f };
     BrakeOutput_t output;
@@ -143,11 +143,11 @@ void test_Brake_Control_Step_DebounceRecovery(void) {
     TEST_ASSERT_BIT_LOW(1, output.status_flag);
 }
 
-/** 
-* test_Brake_Control_Step_StuckPedal:
-* Scenario: Pedal > 50% while speed is not decreasing.
-* Requirement: 5 frames to trigger, 3 frames of continuous decrease to clear.
-*/
+/* ========================================================================= */
+/* test_Brake_Control_Step_StuckPedal:
+/* Scenario: Pedal > 50% while speed is not decreasing.
+/* Requirement: 5 frames to trigger, 3 frames of continuous decrease to clear.
+/* ========================================================================= */
 void test_Brake_Control_Step_StuckPedal(void) {
     BrakeInput_t input = { .pedal_force = 90.0f, .vehicle_speed = 100.0f };
     BrakeOutput_t output;
@@ -174,11 +174,11 @@ void test_Brake_Control_Step_StuckPedal(void) {
     TEST_ASSERT_BIT_LOW(4, output.status_flag);
 }   
 
-/**
- * test_Brake_Control_Step_EmergencyStopAssistance:
- * Scenario: Pedal > 90% and Speed > 60 km/h.
- * Expected: Pressure is boosted to 100.0 Bar.
- */
+/* ========================================================================= */
+/* test_Brake_Control_Step_EmergencyStopAssistance:
+/* Scenario: Pedal > 90% and Speed > 60 km/h.
+/* Expected: Pressure is boosted to 100.0 Bar.
+/* ========================================================================= */
 void test_Brake_Control_Step_EmergencyStopAssistance(void) {
     BrakeInput_t input = { 
         .pedal_force = 91.0f, 
@@ -192,11 +192,11 @@ void test_Brake_Control_Step_EmergencyStopAssistance(void) {
     TEST_ASSERT_EQUAL_FLOAT(100.0f, output.hydraulic_pressure);
 }
 
-/**
- * test_Brake_Control_Step_ThermalSafetyClamp:
- * Scenario: Overheat bit is set (from previous frame) and pressure is high.
- * Expected: Pressure clamped to 50.0 Bar.
- */
+/* ========================================================================= */
+/* test_Brake_Control_Step_ThermalSafetyClamp:
+/* Scenario: Overheat bit is set (from previous frame) and pressure is high.
+/* Expected: Pressure clamped to 50.0 Bar.
+/* ========================================================================= */
 void test_Brake_Control_Step_ThermalSafetyClamp(void) {
     BrakeInput_t input = { .pedal_force = 80.0f, .vehicle_speed = 30.0f, .brake_temp_celsius = 250.0f };
     BrakeOutput_t output;
@@ -212,11 +212,11 @@ void test_Brake_Control_Step_ThermalSafetyClamp(void) {
     TEST_ASSERT_BIT_HIGH(1, output.status_flag);
 }
 
-/**
- * test_Brake_Control_Step_SafetyPriority:
- * Scenario: Both ESA and Overheat are active.
- * Expected: Thermal Clamp wins over ESA (50 Bar vs 100 Bar).
- */
+/* ========================================================================= */
+/* test_Brake_Control_Step_SafetyPriority:
+/* Scenario: Both ESA and Overheat are active.
+/* Expected: Thermal Clamp wins over ESA (50 Bar vs 100 Bar).
+/* ========================================================================= */
 void test_Brake_Control_Step_SafetyPriority(void) {
     BrakeInput_t input = { 
         .pedal_force = 95.0f, 
@@ -233,11 +233,11 @@ void test_Brake_Control_Step_SafetyPriority(void) {
     TEST_ASSERT_BIT_HIGH(1, output.status_flag);
 }
 
-/**
- * test_Brake_Control_Step_NullPointers:
- * Scenario: Passing NULL to the step function.
- * Expected: Function returns gracefully without crash.
- */
+/* ========================================================================= */
+/* test_Brake_Control_Step_NullPointers:
+/* Scenario: Passing NULL to the step function.
+/* Expected: Function returns gracefully without crash.
+/* ========================================================================= */
 void test_Brake_Control_Step_NullPointers(void) {
     BrakeInput_t input = { .pedal_force = 50.0f };
     BrakeOutput_t output;
@@ -248,11 +248,11 @@ void test_Brake_Control_Step_NullPointers(void) {
     Brake_Control_Step(NULL, NULL);
 }
 
-/**
- * test_Brake_Control_Step_NegativeClamping:
- * Scenario: Pedal force is negative.
- * Expected: Clamped to 0.
- */
+/* ========================================================================= */
+/* test_Brake_Control_Step_NegativeClamping:
+/* Scenario: Pedal force is negative.
+/* Expected: Clamped to 0.
+/* ========================================================================= */
 void test_Brake_Control_Step_NegativeClamping(void) {
     BrakeInput_t input = { .pedal_force = -50.0f };
     BrakeOutput_t output;
@@ -261,11 +261,11 @@ void test_Brake_Control_Step_NegativeClamping(void) {
     TEST_ASSERT_EQUAL_FLOAT(0.0f, output.hydraulic_pressure);
 }
 
-/**
- * test_Brake_Control_Init_ResetsInternalState:
- * Scenario: Force a fault, then call Init.
- * Expected: Fault is cleared in next step.
- */
+/* ========================================================================= */
+/* test_Brake_Control_Init_ResetsInternalState:
+/* Scenario: Force a fault, then call Init.
+/* Expected: Fault is cleared in next step.
+/* ========================================================================= */
 void test_Brake_Control_Init_ResetsInternalState(void) {
     BrakeInput_t input = { .pedal_force = 10.0f, .brake_temp_celsius = 250.0f };
     BrakeOutput_t output;
@@ -284,21 +284,97 @@ void test_Brake_Control_Init_ResetsInternalState(void) {
     TEST_ASSERT_BIT_LOW(1, output.status_flag);
 }
 
+/* ========================================================================= */
+/* test_Brake_Control_Step_Heartbeat:
+/* Verifies that the status_flag bits 5-7 increment on every call.
+/* ========================================================================= */
+void test_Brake_Control_Step_Heartbeat(void) {
+    BrakeInput_t input = { .pedal_force = 10.0f, .vehicle_speed = 10.0f };
+    BrakeOutput_t output;
+
+    Brake_Control_Step(&input, &output);
+    uint8_t heartbeat1_cnt = (output.status_flag >> 5) & 0x07; 
+
+    Brake_Control_Step(&input, &output);
+    uint8_t heartbeat2_cnt = (output.status_flag >> 5) & 0x07; 
+    
+    TEST_ASSERT_EQUAL_UINT8(heartbeat1_cnt + 1, heartbeat2_cnt);
+}
+
+/* ========================================================================= */
+/* test_Brake_Control_Step_HillStartLifecycle:                               */
+/* Comprehensive test for SWE_REQ_009.                                       */
+/* ========================================================================= */
+void test_Brake_Control_Step_HillStartLifecycle(void) {
+  BrakeInput_t input = {.pedal_force = 90.0f, .vehicle_speed = 0.0f};
+  BrakeOutput_t output;
+
+  Brake_Control_Init(&output);
+
+  /* 1. Arm the system */
+  Brake_Control_Step(&input, &output);
+
+  /* 2. Release pedal - Pressure should hold at 30.0 Bar */
+  input.pedal_force = 0.0f;
+  Brake_Control_Step(&input, &output);
+  TEST_ASSERT_EQUAL_FLOAT(30.0f, output.front_hydraulic_pressure);
+  TEST_ASSERT_EQUAL_FLOAT(30.0f, output.rear_hydraulic_pressure);
+
+  /* 3. Advance time by 1.5 seconds (150 cycles) */
+  for (int i = 0; i < 150; i++) {
+    Brake_Control_Step(&input, &output);
+  }
+  TEST_ASSERT_EQUAL_FLOAT(30.0f, output.front_hydraulic_pressure);
+
+  /* 4. Cross the 2.0s limit (another 51 cycles) */
+  for (int i = 0; i < 51; i++) {
+    Brake_Control_Step(&input, &output);
+  }
+  TEST_ASSERT_EQUAL_FLOAT(0.0f, output.front_hydraulic_pressure);
+}
+
+/* ========================================================================= */
+/* test_Brake_Control_Step_EBD_Activation:                                   */
+/* Comprehensive test for SWE_REQ_013.                                       */
+/* ========================================================================= */
+void test_Brake_Control_Step_EBD_Activation(void) {
+  BrakeInput_t input = {.pedal_force = 50.0f, .vehicle_speed = 100.0f};
+  BrakeOutput_t output;
+
+  Brake_Control_Init(&output);
+
+  /* Frame 1: Establish baseline speed (100 km/h) */
+  Brake_Control_Step(&input, &output);
+  TEST_ASSERT_EQUAL_FLOAT(output.front_hydraulic_pressure,
+                          output.rear_hydraulic_pressure);
+
+  /* Frame 2: Slam brakes - Speed drops to 80 km/h in 10ms (Huge Deceleration) */
+  input.vehicle_speed = 80.0f;
+  Brake_Control_Step(&input, &output);
+
+  /* Verify EBD is active (Rear = 70% of Front) */
+  TEST_ASSERT_EQUAL_FLOAT(50.0f, output.front_hydraulic_pressure);
+  TEST_ASSERT_EQUAL_FLOAT(50.0f * 0.7f, output.rear_hydraulic_pressure);
+}
+
+/* ========================================================================= */
 int main(void) {
-    UNITY_BEGIN();
-    RUN_TEST(test_Brake_Control_Step_NormalBraking);
-    RUN_TEST(test_Brake_Control_Step_ABSIntervention);
-    RUN_TEST(test_Brake_Control_Step_ABSEdgeCases);
-    RUN_TEST(test_Brake_Control_Step_Warnings);
-    RUN_TEST(test_Brake_Control_Step_ThresholdBoundaries);
-    RUN_TEST(test_Brake_Control_Step_Clamping);
-    RUN_TEST(test_Brake_Control_Step_DebounceRecovery);
-    RUN_TEST(test_Brake_Control_Step_StuckPedal);
-    RUN_TEST(test_Brake_Control_Step_EmergencyStopAssistance);
-    RUN_TEST(test_Brake_Control_Step_ThermalSafetyClamp);
-    RUN_TEST(test_Brake_Control_Step_SafetyPriority);
-    RUN_TEST(test_Brake_Control_Step_NullPointers);
-    RUN_TEST(test_Brake_Control_Step_NegativeClamping);
-    RUN_TEST(test_Brake_Control_Init_ResetsInternalState);
-    return UNITY_END();
+  UNITY_BEGIN();
+  RUN_TEST(test_Brake_Control_Step_NormalBraking);
+  RUN_TEST(test_Brake_Control_Step_ABSIntervention);
+  RUN_TEST(test_Brake_Control_Step_ABSEdgeCases);
+  RUN_TEST(test_Brake_Control_Step_Warnings);
+  RUN_TEST(test_Brake_Control_Step_ThresholdBoundaries);
+  RUN_TEST(test_Brake_Control_Step_Clamping);
+  RUN_TEST(test_Brake_Control_Step_DebounceRecovery);
+  RUN_TEST(test_Brake_Control_Step_StuckPedal);
+  RUN_TEST(test_Brake_Control_Step_EmergencyStopAssistance);
+  RUN_TEST(test_Brake_Control_Step_ThermalSafetyClamp);
+  RUN_TEST(test_Brake_Control_Step_SafetyPriority);
+  RUN_TEST(test_Brake_Control_Step_NullPointers);
+  RUN_TEST(test_Brake_Control_Step_NegativeClamping);
+  RUN_TEST(test_Brake_Control_Init_ResetsInternalState);
+  RUN_TEST(test_Brake_Control_Step_HillStartLifecycle);
+  RUN_TEST(test_Brake_Control_Step_EBD_Activation);
+  return UNITY_END();
 }
