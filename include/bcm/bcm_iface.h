@@ -1,7 +1,7 @@
 #ifndef BCM_IFACE_H
 #define BCM_IFACE_H
 
-#include "bcm_types.h"
+#include "bcm/bcm_types.h"
 
 /**
  * @brief Initialize the Brake Control Module internal state.

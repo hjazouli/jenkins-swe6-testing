@@ -1,4 +1,4 @@
-#include "bcm_cfg.h"
+#include "bcm/bcm_cfg.h"
 #include "bcm_internal.h"
 
 /** @brief Factor to reduce pressure during ABS event */

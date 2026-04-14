@@ -1,5 +1,5 @@
-#include "bcm_cfg.h"
-#include "bcm_types.h"
+#include "bcm/bcm_cfg.h"
+#include "bcm/bcm_types.h"
 #include <stdint.h>
 #include <stdbool.h>
 

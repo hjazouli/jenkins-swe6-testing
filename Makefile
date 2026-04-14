@@ -1,12 +1,12 @@
 # Makefile for Layered Mock ECU Firmware (ASW/BSW)
 
 CC = gcc
-CFLAGS = -Wall -Isrc
+CFLAGS = -Wall -Isrc -Iinclude -Iinclude/bcm -Isrc/app/bcm
 TARGET = build/firmware.elf
 
 # List all source files in the project
 SRCS = src/main.c \
-       src/app/brake_logic.c \
+       src/app/bcm/*.c \
        src/bsw/can_stack.c \
        src/bsw/schm.c
 
@@ -44,13 +44,13 @@ test_can_stack:
 	./build/unit_tests/test_can_stack
 
 test_bcm:
-	mkdir -p build/bcm_tests
-	$(CC) $(CFLAGS) -g -Ibcm/include -Ibcm/src -Iunit_tests/unity \
+	mkdir -p build/unit_tests
+	$(CC) $(CFLAGS) -g -Iunit_tests/unity \
 	unit_tests/unity/unity.c \
-	bcm/src/*.c \
-	bcm/test/test_bcm.c \
-	-o build/bcm_tests/test_bcm
-	./build/bcm_tests/test_bcm
+	src/app/bcm/*.c \
+	test/unit/test_bcm.c \
+	-o build/unit_tests/test_bcm
+	./build/unit_tests/test_bcm
 
 # Launch the Jenkins dashboard easily
 jenkins:

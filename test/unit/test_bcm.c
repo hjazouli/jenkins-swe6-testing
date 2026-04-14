@@ -1,4 +1,4 @@
-#include "bcm_iface.h"
+#include "bcm/bcm_iface.h"
 #include "unity.h"
 
 #include "bcm_internal.h"
@@ -215,6 +215,22 @@ void test_BCM_Wiping_Isolation(void) {
   TEST_ASSERT_EQUAL_FLOAT(2.0f, output.hydraulic_pressure);
 }
 
+/*******************************************************************************
+ * TEST: test_BCM_Step_EmergencyAssist (SWE_REQ_010)
+ *******************************************************************************/
+void test_BCM_Step_EmergencyAssist(void) {
+  BcmInput_t input = {.pedal_force = 95.0f,    /* Slamming > 90% */
+                      .vehicle_speed = 70.0f,  /* Speed > 60 km/h */
+                      .pedal_sensor_volt = 3.5f};
+  BcmOutput_t output;
+
+  BCM_Init(&output);
+  BCM_Step(&input, &output);
+
+  /* Should boost to 100 Bar */
+  TEST_ASSERT_EQUAL_FLOAT(100.0f, output.hydraulic_pressure);
+}
+
 
 /*******************************************************************************
  * MAIN: Unity Runner
@@ -231,5 +247,6 @@ int main(void) {
   RUN_TEST(test_BCM_Step_SignalQualityFault);
   RUN_TEST(test_BCM_Step_DiscWiping);
   RUN_TEST(test_BCM_Wiping_Isolation);
+  RUN_TEST(test_BCM_Step_EmergencyAssist);
   return UNITY_END();
 }

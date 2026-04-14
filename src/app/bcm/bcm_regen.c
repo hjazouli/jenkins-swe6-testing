@@ -1,4 +1,4 @@
-#include "bcm_cfg.h"
+#include "bcm/bcm_cfg.h"
 #include "bcm_internal.h"
 
 /**

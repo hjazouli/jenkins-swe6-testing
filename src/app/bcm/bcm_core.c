@@ -1,6 +1,6 @@
-#include "bcm_iface.h"
+#include "bcm/bcm_iface.h"
 
-#include "bcm_cfg.h"
+#include "bcm/bcm_cfg.h"
 #include "bcm_internal.h"
 
 /**
@@ -36,6 +36,7 @@ BcmStatus_t BCM_Step(const BcmInput_t* in, BcmOutput_t* out) {
   Bcm_Regen_Calculate(in, out);
   BCM_Hsa_RunStateMachine(in, out);
   BCM_Wiping_Rain(in, out);
+  BCM_Eba_RunAssist(in, out);
 
   /* 4. Safety & Distribution */
   BCM_Safety_Check(in, out);

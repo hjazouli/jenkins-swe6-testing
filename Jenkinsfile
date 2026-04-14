@@ -69,7 +69,7 @@ pipeline {
                 echo '📊 Generating C Code Coverage report (gcovr)...'
                 sh '''
                     .venv/bin/gcovr -r . \
-                        --filter bcm/src/ \
+                        --filter src/app/bcm/ \
                         --xml-pretty \
                         --xml build/c-coverage.xml \
                         --html-details build/c-coverage.html
@@ -87,14 +87,14 @@ pipeline {
         stage('Linting (Python)') {
             steps {
                 echo '🔍 Running isolated static code analysis (pylint)...'
-                sh ".venv/bin/python3 -m pylint functional_tests/ scripts/ --fail-under=7.0"
+                sh ".venv/bin/python3 -m pylint test/functional/ scripts/ --fail-under=7.0"
             }
         }
         
         stage('Static Analysis (C)') {
             steps {
                 echo '🔍 Checking C source code for security and quality issues (flawfinder)...'
-                sh ".venv/bin/flawfinder bcm/src/ --minlevel=1"
+                sh ".venv/bin/flawfinder src/app/bcm/ --minlevel=1"
             }
         }
         
@@ -110,9 +110,9 @@ pipeline {
                 echo '🧪 Executing automated tests in sandbox...'
                 sh '''
                     .venv/bin/python3 -m pytest \
-                        functional_tests/ \
+                        test/functional/ \
                         --junitxml=test-results.xml \
-                        --cov=functional_tests \
+                        --cov=test/functional \
                         --cov=scripts \
                         --cov-report=xml:coverage.xml \
                         --cov-report=term \
