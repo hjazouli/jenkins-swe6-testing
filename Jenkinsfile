@@ -2,8 +2,7 @@ pipeline {
     agent any
     
     triggers {
-        // Poll GitHub every minute to check for new commits automatically (No tunnels needed!)
-        pollSCM('* * * * *')
+        githubPush()
     }
     
     environment {

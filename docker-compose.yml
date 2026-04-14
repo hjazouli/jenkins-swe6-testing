@@ -1,6 +1,8 @@
 services:
   jenkins:
-    image: jenkins/jenkins:lts
+    build:
+      context: .
+      dockerfile: Dockerfile.jenkins
     container_name: jenkins-swe6
     ports:
       - "8081:8080"
@@ -8,4 +10,6 @@ services:
     volumes:
       - /Users/hichamjazouli/.jenkins:/var/jenkins_home
       - .:/var/jenkins_home/workspace/SWE6-Test
+    environment:
+      - JAVA_OPTS=-Dhudson.plugins.git.GitSCM.ALLOW_LOCAL_CHECKOUT=true
     restart: always
