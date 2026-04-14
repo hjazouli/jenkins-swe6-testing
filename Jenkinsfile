@@ -47,7 +47,7 @@ pipeline {
         stage('ASW Unit Tests (C)') {
             steps {
                 echo '🧪 Executing ASW Unit Tests: Brake Logic...'
-                sh 'make test_brake_logic'
+                sh 'make test_bcm'
             }
         }
         
@@ -70,7 +70,7 @@ pipeline {
                 echo '📊 Generating C Code Coverage report (gcovr)...'
                 sh '''
                     .venv/bin/gcovr -r . \
-                        --filter src/ \
+                        --filter bcm/src/ \
                         --xml-pretty \
                         --xml build/c-coverage.xml \
                         --html-details build/c-coverage.html
@@ -95,7 +95,7 @@ pipeline {
         stage('Static Analysis (C)') {
             steps {
                 echo '🔍 Checking C source code for security and quality issues (flawfinder)...'
-                sh ".venv/bin/flawfinder src/app/ src/bsw/ src/main.c --minlevel=1"
+                sh ".venv/bin/flawfinder bcm/src/ --minlevel=1"
             }
         }
         
