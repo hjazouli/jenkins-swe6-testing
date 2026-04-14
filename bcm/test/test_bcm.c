@@ -1,15 +1,22 @@
 #include "bcm_iface.h"
 #include "unity.h"
 
+#include "bcm_internal.h"
+
 /* Helper to setup test environment */
-void setUp(void) {}
+void setUp(void) {
+  /* Ensure a fresh ECU state before every test */
+  BCM_Test_ResetAll();
+}
 void tearDown(void) {}
 
-/**
- * @brief Normal braking scenario.
- */
+/*******************************************************************************
+ * TEST: test_BCM_Step_NormalBraking
+ * REQ:  Basic Mapping (1:1)
+ *******************************************************************************/
 void test_BCM_Step_NormalBraking(void) {
-  BcmInput_t input = {.pedal_force = 50.0f, .vehicle_speed = 60.0f};
+  /* pedal_sensor_volt must be in [0.5, 4.5] for system to be active */
+  BcmInput_t input = {.pedal_force = 50.0f, .vehicle_speed = 60.0f, .pedal_sensor_volt = 2.5f};
   BcmOutput_t output;
 
   BCM_Init(&output);
@@ -20,11 +27,12 @@ void test_BCM_Step_NormalBraking(void) {
   TEST_ASSERT_EQUAL_UINT8(0, output.abs_active);
 }
 
-/**
- * @brief ABS Activation scenario (High speed, hard braking).
- */
+/*******************************************************************************
+ * TEST: test_BCM_Step_ABSActivation
+ * REQ:  SSR_FCN_001
+ *******************************************************************************/
 void test_BCM_Step_ABSActivation(void) {
-  BcmInput_t input = {.pedal_force = 90.0f, .vehicle_speed = 110.0f};
+  BcmInput_t input = {.pedal_force = 90.0f, .vehicle_speed = 110.0f, .pedal_sensor_volt = 2.5f};
   BcmOutput_t output;
 
   BCM_Init(&output);
@@ -35,11 +43,12 @@ void test_BCM_Step_ABSActivation(void) {
   TEST_ASSERT_EQUAL_UINT8(1, output.abs_active);
 }
 
-/**
- * @brief Hill Start Assist Lifecycle (SWE_REQ_009).
- */
+/*******************************************************************************
+ * TEST: test_BCM_Step_HillStartLifecycle
+ * REQ:  SSR_ADA_001
+ *******************************************************************************/
 void test_BCM_Step_HillStartLifecycle(void) {
-  BcmInput_t input = {.pedal_force = 90.0f, .vehicle_speed = 0.0f};
+  BcmInput_t input = {.pedal_force = 90.0f, .vehicle_speed = 0.0f, .pedal_sensor_volt = 2.5f};
   BcmOutput_t output;
 
   BCM_Init(&output);
@@ -57,11 +66,12 @@ void test_BCM_Step_HillStartLifecycle(void) {
   TEST_ASSERT_EQUAL_FLOAT(0.0f, output.hydraulic_pressure);
 }
 
-/**
- * @brief EBD Distribution (SWE_REQ_013).
- */
+/*******************************************************************************
+ * TEST: test_BCM_Step_EBDActivation
+ * REQ:  SSR_FCN_003
+ *******************************************************************************/
 void test_BCM_Step_EBDActivation(void) {
-  BcmInput_t input = {.pedal_force = 50.0f, .vehicle_speed = 100.0f};
+  BcmInput_t input = {.pedal_force = 50.0f, .vehicle_speed = 100.0f, .pedal_sensor_volt = 2.5f};
   BcmOutput_t output;
 
   BCM_Init(&output);
@@ -78,30 +88,33 @@ void test_BCM_Step_EBDActivation(void) {
   TEST_ASSERT_EQUAL_FLOAT(35.0f, output.rear_hydraulic_pressure);
 }
 
-/**
- * @brief Thermal Safety and Clamping (SWE_REQ_007/008).
- */
+/*******************************************************************************
+ * TEST: test_BCM_Step_ThermalSafety
+ * REQ:  SSR_SAF_003 / SSR_SAF_004
+ *******************************************************************************/
 void test_BCM_Step_ThermalSafety(void) {
   BcmInput_t input = {.pedal_force = 80.0f,
                       .vehicle_speed = 40.0f,
-                      .brake_temp_celsius = 250.0f};
+                      .brake_temp_celsius = 250.0f,
+                      .pedal_sensor_volt = 2.5f};
   BcmOutput_t output;
 
   BCM_Init(&output);
 
   /* Trigger overheat */
   BCM_Step(&input, &output);
-  
+
   /* Bit 1 should be set, pressure clamped to 50 */
   TEST_ASSERT_BIT_HIGH(1, output.status_flag);
   TEST_ASSERT_EQUAL_FLOAT(50.0f, output.hydraulic_pressure);
 }
 
-/**
- * @brief Regen Blending (SWE_REQ_014).
- */
+/*******************************************************************************
+ * TEST: test_BCM_Step_RegenBlending
+ * REQ:  SSR_FCN_002
+ *******************************************************************************/
 void test_BCM_Step_RegenBlending(void) {
-  BcmInput_t input = {.pedal_force = 50.0f, .motor_torque = 100.0f};
+  BcmInput_t input = {.pedal_force = 50.0f, .motor_torque = 100.0f, .pedal_sensor_volt = 2.5f};
   BcmOutput_t output;
 
   BCM_Init(&output);
@@ -111,24 +124,101 @@ void test_BCM_Step_RegenBlending(void) {
   TEST_ASSERT_EQUAL_FLOAT(40.0f, output.hydraulic_pressure);
 }
 
-/**
- * @brief Heartbeat counter (SWE_REQ_015).
- */
+/*******************************************************************************
+ * TEST: test_BCM_Step_Heartbeat
+ * REQ:  SSR_SYS_002
+ *******************************************************************************/
 void test_BCM_Step_Heartbeat(void) {
-  BcmInput_t input = {0};
+  BcmInput_t input = {.pedal_sensor_volt = 2.5f};
   BcmOutput_t output;
 
   BCM_Init(&output);
-  
+
   BCM_Step(&input, &output);
   uint8_t hb1 = (output.status_flag >> 5) & 0x07;
-  
+
   BCM_Step(&input, &output);
   uint8_t hb2 = (output.status_flag >> 5) & 0x07;
 
   TEST_ASSERT_EQUAL_UINT8((hb1 + 1) & 0x07, hb2);
 }
 
+/*******************************************************************************
+ * TEST: test_BCM_Step_SignalQualityFault
+ * REQ:  SSR_SAF_002
+ *******************************************************************************/
+void test_BCM_Step_SignalQualityFault(void) {
+  BcmInput_t input = {.pedal_force = 50.0f,
+                      .pedal_sensor_volt = 0.2f, /* < 0.5V Fault */
+                      .vehicle_speed = 40.0f};
+  BcmOutput_t output;
+
+  BCM_Test_ResetAll();
+  BCM_Init(&output);
+  BCM_Step(&input, &output);
+
+  /* Bit 4 should be set, pressure forced to 0 */
+  TEST_ASSERT_BIT_HIGH(4, output.status_flag);
+  TEST_ASSERT_EQUAL_FLOAT(0.0f, output.hydraulic_pressure);
+
+  /* Recovery check - High voltage fault */
+  input.pedal_sensor_volt = 4.8f; /* > 4.5V Fault */
+  BCM_Step(&input, &output);
+  TEST_ASSERT_BIT_HIGH(4, output.status_flag);
+  TEST_ASSERT_EQUAL_FLOAT(0.0f, output.hydraulic_pressure);
+}
+
+/*******************************************************************************
+ * TEST: test_BCM_Step_DiscWiping (SSR_ADA_002)
+ *******************************************************************************/
+void test_BCM_Step_DiscWiping(void) {
+  BcmInput_t input = {.pedal_force = 0.0f,
+                      .vehicle_speed = 60.0f,
+                      .rain_detected = true,
+                      .pedal_sensor_volt = 2.5f};
+  BcmOutput_t output;
+
+  BCM_Init(&output);
+
+  /* 1. Trigger Pulse - Should apply 2.0 Bar immediately */
+  BCM_Step(&input, &output);
+  TEST_ASSERT_EQUAL_FLOAT(2.0f, output.hydraulic_pressure);
+
+  /* 2. Check Duration - Should stay at 2.0 Bar for 1.0s (100 cycles) */
+  for (int i = 0; i < 99; i++) BCM_Step(&input, &output);
+  TEST_ASSERT_EQUAL_FLOAT(2.0f, output.hydraulic_pressure);
+
+  /* 3. Check Release - Cycle 101 should be 0.0 Bar */
+  BCM_Step(&input, &output);
+  TEST_ASSERT_EQUAL_FLOAT(0.0f, output.hydraulic_pressure);
+
+  /* 4. Check Period - Fast forward rest of the 60s period 
+     We need 5999 more cycles to complete the 6000-cycle wait */
+  for (int i = 0; i < 5999; i++) BCM_Step(&input, &output);
+  
+  /* Cycle 6101: Next cycle should start the pulse again */
+  BCM_Step(&input, &output);
+  TEST_ASSERT_EQUAL_FLOAT(2.0f, output.hydraulic_pressure);
+}
+
+/*******************************************************************************
+ * TEST: test_BCM_Wiping_Isolation
+ *******************************************************************************/
+void test_BCM_Wiping_Isolation(void) {
+  BcmInput_t input = {.vehicle_speed = 60.0f, .rain_detected = true};
+  BcmOutput_t output = {.hydraulic_pressure = 0.0f};
+
+  BCM_Wiping_Reset();
+  BCM_Wiping_Rain(&input, &output);
+
+  /* Should set 2.0 Bar directly */
+  TEST_ASSERT_EQUAL_FLOAT(2.0f, output.hydraulic_pressure);
+}
+
+
+/*******************************************************************************
+ * MAIN: Unity Runner
+ *******************************************************************************/
 int main(void) {
   UNITY_BEGIN();
   RUN_TEST(test_BCM_Step_NormalBraking);
@@ -138,5 +228,8 @@ int main(void) {
   RUN_TEST(test_BCM_Step_ThermalSafety);
   RUN_TEST(test_BCM_Step_RegenBlending);
   RUN_TEST(test_BCM_Step_Heartbeat);
+  RUN_TEST(test_BCM_Step_SignalQualityFault);
+  RUN_TEST(test_BCM_Step_DiscWiping);
+  RUN_TEST(test_BCM_Wiping_Isolation);
   return UNITY_END();
 }

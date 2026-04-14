@@ -35,6 +35,7 @@ BcmStatus_t BCM_Step(const BcmInput_t* in, BcmOutput_t* out) {
   /* 3. Assistance Features */
   Bcm_Regen_Calculate(in, out);
   BCM_Hsa_RunStateMachine(in, out);
+  BCM_Wiping_Rain(in, out);
 
   /* 4. Safety & Distribution */
   BCM_Safety_Check(in, out);
@@ -44,4 +45,12 @@ BcmStatus_t BCM_Step(const BcmInput_t* in, BcmOutput_t* out) {
   BCM_Diag_Update(out);
 
   return BCM_STATUS_OK;
+}
+
+/**
+ * @brief Master reset for all internal modules (intended for unit tests).
+ */
+void BCM_Test_ResetAll(void) {
+  BCM_Safety_Reset();
+  BCM_Wiping_Reset();
 }

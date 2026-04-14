@@ -13,8 +13,7 @@
 /** @brief Factor to reduce pressure during ABS event [Ratio] */
 #define BCM_CFG_ABS_PRESSURE_REDUCTION_FACTOR 0.62f
 
-/** @brief Conversion ratio from motor torque to hydraulic pressure [1 Bar = 10
- * Nm] */
+/** @brief Conversion ratio from motor torque to hydraulic pressure [1 Bar = 10 Nm] */
 #define BCM_CFG_REGEN_TORQUE_TO_BAR_RATIO 10.0f
 
 /** @brief Threshold to trigger overheat warning [Celsius] */
@@ -37,5 +36,18 @@
 
 /** @brief EBD Rear pressure ratio relative to front [Ratio] */
 #define BCM_CFG_EBD_REAR_PRESSURE_RATIO 0.7f
+
+/* ========================================================================= */
+/*                          SIGNAL QUALITY PARAMETERS                         */
+/* ========================================================================= */
+
+/** @brief Minimum valid pedal sensor voltage [V] @req SSR_SAF_002 */
+#define BCM_CFG_PEDAL_VOLT_MIN 0.5f
+
+/** @brief Maximum valid pedal sensor voltage [V] @req SSR_SAF_002 */
+#define BCM_CFG_PEDAL_VOLT_MAX 4.5f
+
+/** @brief Status Bit for Fail-Safe (Electrical Fault) [Bit 4] */
+#define BCM_CFG_STATUS_BIT_FAILSAFE 0x10
 
 #endif /* BCM_CFG_H */

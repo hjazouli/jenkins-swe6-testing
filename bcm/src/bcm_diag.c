@@ -8,7 +8,7 @@ static uint8_t s_heartbeat_cnt = 0;
  * @req SWE_REQ_015
  */
 void BCM_Diag_Update(BcmOutput_t* out) {
-  /* Pack heartbeat into bits 5-7 of status_flag (preserving lower bits) */
+  /* Pack heartbeat into bits 5-7 of status_flag (preserving bits 0-4) */
   out->status_flag &= 0x1F;
   out->status_flag |= (uint8_t)(s_heartbeat_cnt << 5);
 

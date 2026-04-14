@@ -45,7 +45,7 @@ test_can_stack:
 
 test_bcm:
 	mkdir -p build/bcm_tests
-	$(CC) $(CFLAGS) -Ibcm/include -Iunit_tests/unity \
+	$(CC) $(CFLAGS) -g -Ibcm/include -Ibcm/src -Iunit_tests/unity \
 	unit_tests/unity/unity.c \
 	bcm/src/*.c \
 	bcm/test/test_bcm.c \

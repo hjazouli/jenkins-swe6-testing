@@ -2,6 +2,7 @@
 #define BCM_TYPES_H
 
 #include <stdint.h>
+#include <stdbool.h>
 
 /**
  * @brief Standard return codes for BCM functions.
@@ -26,6 +27,8 @@ typedef struct {
   float brake_temp_celsius;
   /** @brief Regenerative torque available from motor [Nm] */
   float motor_torque;
+  /** @brief Flag indicating rain presence (from rain sensor) */
+  bool rain_detected;
 } BcmInput_t;
 
 /**
