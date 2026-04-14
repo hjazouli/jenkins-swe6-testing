@@ -1,6 +1,6 @@
 # SWE6-Test: ECU Firmware CI/CD & Verification Framework
 
-## 📌 Mission Overview
+## Mission Overview
 
 The **SWE6-Test** repository is a high-fidelity simulation of an automotive software development environment. It demonstrates how to achieve **ASPICE SWE.6 (Software Unit Test)** and **SWE.5 (Software Integration Test)** compliance using a modern CI/CD stack.
 
@@ -8,7 +8,7 @@ This project simulates the development of a **Brake Control ECU** (Infineon TC39
 
 ---
 
-## 🏗️ System Architecture
+## System Architecture
 
 ### 1. Firmware Layers (C Source)
 
@@ -48,7 +48,7 @@ Located in `functional_tests/`, these tests treat the ECU as a black box.
 
 ---
 
-## 📂 Evolution of the Project Structure
+##  Evolution of the Project Structure
 
 We recently refactored the project to adopt a more professional naming convention:
 
@@ -71,7 +71,7 @@ SWE6-Test/
 
 ---
 
-## 🚀 The CI/CD Pipeline (`Jenkinsfile`)
+## The CI/CD Pipeline (`Jenkinsfile`)
 
 The pipeline is designed for **Zero-Touch Automation**. Every commit triggers a full validation battery:
 
@@ -89,7 +89,7 @@ The pipeline is designed for **Zero-Touch Automation**. Every commit triggers a 
 
 ---
 
-## 🛠️ Developer Manual (Boring but Essential)
+##  Developer Manual (Boring but Essential)
 
 ### Running Everything Locally
 
@@ -120,7 +120,7 @@ If the pipeline fails after a rename/refactor, ensure:
 
 ---
 
-## 📈 Future Outlook
+##  Future Outlook
 
 - **Static Analysis (C)**: Integrate MISRA-C checkers (e.g., Cppcheck or PC-Lint).
 - **Complex Scenarios**: Add multi-ECU coordination tests (e.g., Brake ECU + Steering ECU interaction).
