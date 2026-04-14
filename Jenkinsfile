@@ -2,8 +2,7 @@ pipeline {
     agent any
     
     triggers {
-        // Poll every 10 seconds (aggressive) to mimic "instant" trigger locally
-        pollSCM('H/10 * * * * *')
+        pollSCM('* * * * *')
     }
     
     environment {
