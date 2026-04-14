@@ -2,7 +2,8 @@ pipeline {
     agent any
     
     triggers {
-        githubPush()
+        // Poll every 10 seconds (aggressive) to mimic "instant" trigger locally
+        pollSCM('H/10 * * * * *')
     }
     
     environment {
