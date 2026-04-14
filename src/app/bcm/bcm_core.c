@@ -41,6 +41,7 @@ BcmStatus_t BCM_Step(const BcmInput_t* in, BcmOutput_t* out) {
   /* 4. Safety & Distribution */
   BCM_Safety_Check(in, out);
   BCM_Ebd_PerformSplit(in, out);
+  BCM_Plausibility_Check(in, out);
 
   /* 5. System Health */
   BCM_Diag_Update(out);
@@ -54,4 +55,5 @@ BcmStatus_t BCM_Step(const BcmInput_t* in, BcmOutput_t* out) {
 void BCM_Test_ResetAll(void) {
   BCM_Safety_Reset();
   BCM_Wiping_Reset();
+  BCM_Plausibility_Reset();
 }

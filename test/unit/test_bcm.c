@@ -233,6 +233,41 @@ void test_BCM_Step_EmergencyAssist(void) {
 
 
 /*******************************************************************************
+ * TEST: test_BCM_Step_StuckPedalPlausibility (SWE_REQ_011)
+ *******************************************************************************/
+void test_BCM_Step_StuckPedalPlausibility(void) {
+  BcmInput_t input = {.pedal_force = 0.0f, .vehicle_speed = 80.0f, .pedal_sensor_volt = 2.5f};
+  BcmOutput_t output;
+
+  BCM_Test_ResetAll();
+  BCM_Init(&output);
+
+  /* 0. Stabilize: Set vehicle_last_speed to 80.0 without triggering counter */
+  BCM_Step(&input, &output);
+  
+  /* 1. Enter: High force, flat speed for 4 frames - should NOT trigger yet */
+  input.pedal_force = 60.0f;
+  for (int i = 0; i < 4; i++) BCM_Step(&input, &output);
+  TEST_ASSERT_BIT_LOW(2, output.status_flag);
+
+  /* 2. Fifth frame - Trigger Bit 2 */
+  BCM_Step(&input, &output);
+  TEST_ASSERT_BIT_HIGH(2, output.status_flag);
+
+  /* 3. Recovery: Speed decrease for 2 frames - should NOT clear yet */
+  input.vehicle_speed = 70.0f; /* Frame 1 of decrease */
+  BCM_Step(&input, &output);
+  input.vehicle_speed = 60.0f; /* Frame 2 of decrease */
+  BCM_Step(&input, &output);
+  TEST_ASSERT_BIT_HIGH(2, output.status_flag);
+
+  /* 4. Frame 3 of decrease - Should CLEAR Bit 2 */
+  input.vehicle_speed = 50.0f;
+  BCM_Step(&input, &output);
+  TEST_ASSERT_BIT_LOW(2, output.status_flag);
+}
+
+/*******************************************************************************
  * MAIN: Unity Runner
  *******************************************************************************/
 int main(void) {
@@ -248,5 +283,6 @@ int main(void) {
   RUN_TEST(test_BCM_Step_DiscWiping);
   RUN_TEST(test_BCM_Wiping_Isolation);
   RUN_TEST(test_BCM_Step_EmergencyAssist);
+  RUN_TEST(test_BCM_Step_StuckPedalPlausibility);
   return UNITY_END();
 }
