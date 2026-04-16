@@ -11,8 +11,12 @@ INCLUDES = -I$(FIRMWARE_PATH)/src \
            -I$(BCM_PATH)/include \
            -I$(BCM_PATH)/src
 
+# Versioning
+GIT_VERSION = $(shell git describe --tags --always --dirty)
+
 # Options
 CFLAGS = -mcpu=cortex-m4 -mthumb -mfloat-abi=hard -mfpu=fpv4-sp-d16 -O0 -g $(INCLUDES)
+CFLAGS += -DBCM_SW_VERSION=\"$(GIT_VERSION)\"
 LDFLAGS = -T linker.ld -nostdlib
 
 # Sources
