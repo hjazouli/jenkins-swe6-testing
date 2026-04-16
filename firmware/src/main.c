@@ -76,6 +76,10 @@ void uart_print(char *str) {
 }
 
 void main(void) {
+    /* 0. Enable FPU (Coprocessor 10 and 11) */
+    /* This prevents a HardFault when using float variables */
+    (*(volatile uint32_t *)(0xE000ED88)) |= ((3UL << 20) | (3UL << 22));
+
     // IMPORTANT: Make sure the CPU looks at OUR vector table
     SCB_VTOR = 0x08004000;
 
