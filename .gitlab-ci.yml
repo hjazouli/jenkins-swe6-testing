@@ -12,6 +12,8 @@ build_firmware:
   tags:
     - mac-m4  # Make sure this matches the tag you used in registration!
   script:
+    - echo "🔍 IDENTIFYING SOFTWARE VERSION..."
+    - git describe --tags --always --dirty
     - echo "🔨 Compiling BCM Application and Bootloader..."
     - make -C firmware clean all
     - make -C firmware/bootloader clean all

@@ -11,6 +11,8 @@ pipeline {
             steps {
                 echo '🔌 Checking for Nucleo hardware connection...'
                 sh 'st-info --probe'
+                echo '🔍 IDENTIFYING SOFTWARE VERSION...'
+                sh 'git describe --tags --always --dirty'
             }
         }
         
