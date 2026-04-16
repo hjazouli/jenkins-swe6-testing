@@ -1,5 +1,5 @@
 #include "bcm_cfg.h"
-#include "bcm_internal.h"
+#include "bcm_iface.h"
 
 /* State memory for safety features */
 static float s_plaus_last_speed = 0.0f;
@@ -9,14 +9,24 @@ static uint8_t s_plaus_latch = 0x00;
 static uint8_t s_thermal_fault_latch = 0x00;
 static uint8_t s_thermal_recovery_cnt = 0;
 
+/* Hysteresis constants (should ideally be in bcm_cfg.h) */
+#define HYDRAULIC_PRESSURE_HIGH_THRESHOLD 5.0f
+#define HYDRAULIC_PRESSURE_LOW_THRESHOLD  2.0f
+
 /**
- * @brief Combined safety monitoring for thermal and plausibility.
- * @req SWE_REQ_007, SWE_REQ_008, SWE_REQ_011
+ * @brief Combined safety monitoring for lights, thermal and plausibility.
  */
 void BCM_Safety_Check(const BcmInput_t* in, BcmOutput_t* out) {
+  /* 0. Brake Light Control with Hysteresis */
+  if (out->hydraulic_pressure > HYDRAULIC_PRESSURE_HIGH_THRESHOLD) {
+    out->status_flag |= 0x01; // LIGHTS ON
+  } else if (out->hydraulic_pressure < HYDRAULIC_PRESSURE_LOW_THRESHOLD) {
+    out->status_flag &= ~0x01; // LIGHTS OFF
+  }
+
   /* 1. Thermal Latching (SWE_REQ_007) */
   if (in->brake_temp_celsius > BCM_CFG_BRAKE_OVERHEAT_THRESHOLD_C) {
-    s_thermal_fault_latch = 0x02;
+    s_thermal_fault_latch = 0x02; // THERMAL FAULT
     s_thermal_recovery_cnt = 0;
   } else if (s_thermal_fault_latch) {
     if (++s_thermal_recovery_cnt >= 3) {
