@@ -35,3 +35,4 @@ flash_hardware:
     name: hardware-bench
   only:
     - main
+    - tags
