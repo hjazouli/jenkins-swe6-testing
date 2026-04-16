@@ -1,0 +1,35 @@
+# GitLab CI/CD Pipeline for Automated BCM Flashing
+stages:
+  - build
+  - deploy
+
+variables:
+  # Ensure the runner can find your homebrew tools
+  PATH: "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+
+build_firmware:
+  stage: build
+  tags:
+    - mac-m4  # Make sure this matches the tag you used in registration!
+  script:
+    - echo "🔨 Compiling BCM Application and Bootloader..."
+    - make -C firmware clean all
+    - make -C firmware/bootloader clean all
+  artifacts:
+    paths:
+      - firmware/blinky.bin
+      - firmware/bootloader/bootloader.bin
+    expire_in: 1 week
+
+flash_hardware:
+  stage: deploy
+  tags:
+    - mac-m4
+  script:
+    - echo "⚡ Physically Flashing the Nucleo-F401RE..."
+    - chmod +x deploy_bcm.sh
+    - ./deploy_bcm.sh
+  environment:
+    name: hardware-bench
+  only:
+    - main
