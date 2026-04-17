@@ -161,59 +161,39 @@ void main(void) {
   uart_print(__TIME__);
   uart_print("\r\n=================================\r\n");
 
-  while (1) {
+  while (1)
+  {
     /* A. Check for Remote Manipulation (HiL Interface) */
     int rx_byte;
     while ((rx_byte = uart_read()) != -1)
     {
       if (rx_byte == '\n' || rx_byte == '\r')
-      {        cmd_buffer[cmd_idx] = '\0'; // Seal the string
-        if (cmd_idx > 1) {
-          char cmd_type = cmd_buffer[0];
+      {
+        cmd_buffer[cmd_idx] = '\0';
+        if (cmd_idx > 1)
+        {
+          char type = cmd_buffer[0];
           float val = parse_float(&cmd_buffer[1]);
-
-          if (cmd_type == 'P') {
-            bcm_in.pedal_force = val;
-            bcm_out.hydraulic_pressure = val / 10.0f;
-          }
-          if (cmd_type == 'T') {
-            bcm_in.brake_temp_celsius = val;
-          }
-          if (cmd_type == 'S') {
-            bcm_in.vehicle_speed = val;
-          }
-          uart_print("[ACK] Received: ");
-          uart_write(cmd_type);
-          uart_print("\r\n");
+          if (type == 'P') bcm_in.pedal_force = val;
+          if (type == 'T') bcm_in.brake_temp_celsius = val;
+          if (type == 'S') bcm_in.vehicle_speed = val;
+          uart_print("[ACK] RECEIVED\r\n");
         }
-        cmd_idx = 0; // Reset for next message
-      } else if (cmd_idx < 31) {
+        cmd_idx = 0;
+      }
+      else if (cmd_idx < 31)
+      {
         cmd_buffer[cmd_idx++] = (char)rx_byte;
       }
     }
 
-    /* 1. Read Blue Button (Physical Fallback) */
-    /* If button is pressed, it forces pedal to 100% */
-    if (((GPIOC_IDR & (1 << 13)) == 0)) {
-      bcm_in.pedal_force = 100.0f;
-      bcm_out.hydraulic_pressure = 10.0f;
-    }
-    // REMOVED ELSE: This allows UART commands to persist when button is
-    // released!
-
-    /* 3. Run Safety Logic */
+    /* B. Run Safety Logic */
     BCM_Safety_Check(&bcm_in, &bcm_out);
     BCM_Ebd_PerformSplit(&bcm_in, &bcm_out);
 
-    /* 4. Update Hardware LED based on Software Result */
-    if (bcm_out.status_flag & 0x01) {
-      GPIOA_ODR |= (1 << 5); // LED ON
-    } else {
-      GPIOA_ODR &= ~(1 << 5); // LED OFF
-    }
-
-    /* 5. Telemetry Logging */
-    if (bcm_in.pedal_force > 0.1f) {
+    /* C. Telemetry Logic (Memory Inspector) */
+    if (bcm_in.pedal_force > 0.1f)
+    {
       uart_print("[BCM] IN_P:");
       print_int((int)bcm_in.pedal_force);
       uart_print(" | IN_S:");
@@ -223,20 +203,28 @@ void main(void) {
       uart_print(" | R:");
       print_int((int)bcm_out.rear_hydraulic_pressure);
       uart_print("\r\n");
-    } else {
-      // Only print once every ~10,000 cycles
-      static uint32_t idle_count = 0;
-      if (++idle_count > 10000) {
-        uart_print("\r\n[BCM] ONLINE_V2 | FLAG: ");
-        // Convert status_flag to a simple hex digit for UART
-        char f = (bcm_out.status_flag < 10) ? (bcm_out.status_flag + '0')
-                                            : (bcm_out.status_flag - 10 + 'A');
+    }
+    else
+    {
+      static uint32_t idle_timer = 0;
+      if (++idle_timer > 500)
+      {
+        uart_print("[BCM] ONLINE_V2 | STATUS: ");
+        char f = (bcm_out.status_flag < 10) ? (bcm_out.status_flag + '0') : (bcm_out.status_flag - 10 + 'A');
         uart_write(f);
         uart_print("\r\n");
-        idle_count = 0;
+        idle_timer = 0;
       }
     }
 
-    delay(100000); // Small task delay
+    /* D. Heartbeat LED Toggle (Visual Life Proof) */
+    static uint32_t heartbeat_cnt = 0;
+    if (++heartbeat_cnt > 100)
+    {
+      GPIOA_ODR ^= (1 << 5); 
+      heartbeat_cnt = 0;
+    }
+
+    delay(1000); 
   }
 }
