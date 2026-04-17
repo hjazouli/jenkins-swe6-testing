@@ -167,6 +167,7 @@ void main(void) {
     int rx_byte;
     while ((rx_byte = uart_read()) != -1)
     {
+      GPIOA_ODR ^= (1 << 5); // THE "TRUTH" BLINK
       if (rx_byte == '\n' || rx_byte == '\r')
       {
         cmd_buffer[cmd_idx] = '\0';
