@@ -21,7 +21,8 @@ LDFLAGS = -T linker.ld -nostdlib
 
 # Sources
 SRCS = src/main.c \
-       $(BCM_PATH)/src/bcm_safety.c
+       $(BCM_PATH)/src/bcm_safety.c \
+       $(BCM_PATH)/src/bcm_ebd.c
 
 # Targets
 all: blinky.bin

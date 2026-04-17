@@ -193,9 +193,92 @@ class SignalMonitor:
         )
 
 
+import serial
+import time
+
+SERIAL_PORT = "/dev/tty.usbmodem103"
+BAUD_RATE = 9600
+
+
+class HardwareBridge:
+    def __init__(self):
+        print(f"Hardware Bridge: Connecting to Hardware on {SERIAL_PORT}...")
+        self.serial = serial.Serial(SERIAL_PORT, BAUD_RATE, timeout=1)
+        time.sleep(2)
+        self.serial.reset_input_buffer()
+
+    def set_pedal(self, force: float):
+        self.serial.write(f"P{force}\n".encode("utf-8"))
+
+    def set_temp(self, temp: float):
+        self.serial.write(f"T{temp}\n".encode("utf-8"))
+
+    def set_speed(self, speed: float):
+        self.serial.write(f"S{speed}\n".encode("utf-8"))
+
+    def get_status(self):
+        return self.serial.readline().decode("utf-8", errors="ignore").strip()
+
+    def close(self):
+        self.serial.close()
+
+
+class SimBridge:
+    def __init__(self, bcm_dll):
+        self.bcm = bcm_dll
+        self.input_struct = self.bcm.BcmInput_t()
+        self.output_struct = self.bcm.BcmOutput_t()
+
+    def set_pedal(self, force: float):
+        self.input_struct.pedal_force = force
+        self.output_struct.hydraulic_pressure = force / 10.0
+        self._step()
+
+    def set_temp(self, temp: float):
+        self.input_struct.brake_temp_celsius = temp
+        self._step()
+
+    def set_speed(self, speed: float):
+        self.input_struct.vehicle_speed = speed
+        self._step()
+
+    def _step(self):
+        self.bcm.BCM_Safety_Check(self.bcm.ctypes.byref(self.input_struct), self.bcm.ctypes.byref(self.output_struct))
+        self.bcm.BCM_Ebd_PerformSplit(self.bcm.ctypes.byref(self.input_struct), self.bcm.ctypes.byref(self.output_struct))
+
+    def get_status(self) -> str:
+        pedal_str = "DEPRESSED" if self.input_struct.pedal_force > 0.1 else "IDLE"
+        brake_str = "ACTIVE" if (self.output_struct.status_flag & 0x01) else "INACTIVE"
+        if self.input_struct.pedal_force > 0.1:
+            return f"[BCM] Pedal: {pedal_str} | Lights: {brake_str} | F: {int(self.output_struct.front_hydraulic_pressure)} | R: {int(self.output_struct.rear_hydraulic_pressure)}"
+        return f"[BCM] Status: IDLE | FLAG: {self.output_struct.status_flag}"
+
+    def close(self):
+        pass
+
+
 # -----------------------------------------------------------------------------
 # 3. PYTEST FIXTURES (The HIL Framework)
 # -----------------------------------------------------------------------------
+
+
+def pytest_addoption(parser):
+    parser.addoption(
+        "--target", action="store", default="sim", help="Target: sim or hardware"
+    )
+
+
+@pytest.fixture
+def bcm_target(request):
+    target_type = request.config.getoption("--target")
+    
+    if target_type == "hardware":
+        bridge = HardwareBridge()
+        yield bridge
+        bridge.close()
+    else:
+        # Return a simple mock or the SimBridge (we'll connect CAN later)
+        yield SimBridge(None)
 
 
 @pytest.fixture(scope="session")
