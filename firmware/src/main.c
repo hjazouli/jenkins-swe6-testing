@@ -82,7 +82,10 @@ void uart_print(char *str) {
 void print_int(int val) {
   char buf[16];
   int i = 0;
-  if (val == 0) { uart_write('0'); return; }
+  if (val == 0) {
+    uart_write('0');
+    return;
+  }
   if (val < 0) {
     uart_write('-');
     val = -val;
@@ -161,10 +164,10 @@ void main(void) {
   while (1) {
     /* A. Check for Remote Manipulation (HiL Interface) */
     int rx_byte;
-    while ((rx_byte = uart_read()) != -1) {
-      uart_write(rx_byte); // ECHO EVERY BYTE BACK IMMEDIATELY!
-      if (rx_byte == '\n' || rx_byte == '\r') {
-        cmd_buffer[cmd_idx] = '\0'; // Seal the string
+    while ((rx_byte = uart_read()) != -1)
+    {
+      if (rx_byte == '\n' || rx_byte == '\r')
+      {        cmd_buffer[cmd_idx] = '\0'; // Seal the string
         if (cmd_idx > 1) {
           char cmd_type = cmd_buffer[0];
           float val = parse_float(&cmd_buffer[1]);
@@ -179,7 +182,9 @@ void main(void) {
           if (cmd_type == 'S') {
             bcm_in.vehicle_speed = val;
           }
-          uart_print("[ACK] Received: "); uart_write(cmd_type); uart_print("\r\n");
+          uart_print("[ACK] Received: ");
+          uart_write(cmd_type);
+          uart_print("\r\n");
         }
         cmd_idx = 0; // Reset for next message
       } else if (cmd_idx < 31) {
@@ -193,7 +198,8 @@ void main(void) {
       bcm_in.pedal_force = 100.0f;
       bcm_out.hydraulic_pressure = 10.0f;
     }
-    // REMOVED ELSE: This allows UART commands to persist when button is released!
+    // REMOVED ELSE: This allows UART commands to persist when button is
+    // released!
 
     /* 3. Run Safety Logic */
     BCM_Safety_Check(&bcm_in, &bcm_out);
