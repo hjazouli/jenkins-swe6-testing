@@ -145,7 +145,7 @@ void main(void) {
         }
 
         /* 5. Telemetry Logging */
-        if (button_pressed) {
+        if (bcm_in.pedal_force > 0.1f) {
             uart_print("[BCM] Pedal: DEPRESSED | Lights: ACTIVE\r\n");
         } else {
             // Only print idle sporadically to avoid spamming
