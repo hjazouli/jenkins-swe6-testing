@@ -80,16 +80,17 @@ void uart_print(char *str) {
 }
 
 void print_int(int val) {
-  char buf[10];
+  char buf[16];
   int i = 0;
+  if (val == 0) { uart_write('0'); return; }
   if (val < 0) {
     uart_write('-');
     val = -val;
   }
-  do {
+  while (val > 0 && i < 15) {
     buf[i++] = (val % 10) + '0';
     val /= 10;
-  } while (val > 0);
+  }
   while (i > 0) {
     uart_write(buf[--i]);
   }
