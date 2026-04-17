@@ -7,7 +7,7 @@
             "request": "launch",
             "module": "pytest",
             "args": [
-                "functional_tests/test_unified_bcm.py::test_ebd_split",
+                "tests/functional/test_unified_bcm.py::test_ebd_split",
                 "--target=hardware",
                 "-s",
                 "-v"

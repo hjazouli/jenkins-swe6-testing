@@ -1,5 +1,6 @@
 #include <stdint.h>
 #include <string.h>
+#include <stdio.h>
 
 #include "bcm_iface.h"
 #include "bcm_types.h"
@@ -48,6 +49,8 @@ void delay(volatile uint32_t count) {
     __asm("nop");
   }
 }
+
+static uint32_t s_tick_count = 0;
 
 void uart_init(void) {
   RCC_AHB1ENR |= 0x01;
