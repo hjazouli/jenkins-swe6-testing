@@ -65,8 +65,16 @@ void uart_init(void) {
 }
 
 void uart_write(int ch) {
-    while (!(USART2_SR & (1 << 7)));
+    while (!(USART2_SR & (1 << 7)))
+    ;
     USART2_DR = (ch & 0xFF);
+}
+
+int uart_read(void) {
+    if (USART2_SR & (1 << 5)) { // RXNE (Read data register not empty)
+        return USART2_DR & 0xFF;
+    }
+    return -1;
 }
 
 void uart_print(char *str) {
@@ -108,16 +116,22 @@ void main(void) {
     uart_print("\r\n=================================\r\n");
 
     while (1) {
-        /* 1. Read Blue Button (Active LOW) */
-        uint8_t button_pressed = ((GPIOC_IDR & (1 << 13)) == 0);
+        /* A. Check for Remote Manipulation (HiL Interface) */
+        int cmd = uart_read();
+        if (cmd != -1) {
+            if (cmd == 'P') { bcm_in.pedal_force = 100.0f; bcm_out.hydraulic_pressure = 10.0f; }
+            if (cmd == 'p') { bcm_in.pedal_force = 0.0f; bcm_out.hydraulic_pressure = 0.0f; }
+            if (cmd == 'T') { bcm_in.brake_temp_celsius = 250.0f; }
+            if (cmd == 't') { bcm_in.brake_temp_celsius = 45.0f; }
+            if (cmd == 'S') { bcm_in.vehicle_speed += 10.0f; }
+            if (cmd == 's') { bcm_in.vehicle_speed = 0.0f; }
+        }
 
-        /* 2. Map Button to Pedal Force and Hydraulic Pressure */
-        if (button_pressed) {
+        /* 1. Read Blue Button (Physical Fallback) */
+        /* If button is pressed, it overrides remote 'p' */
+        if (((GPIOC_IDR & (1 << 13)) == 0)) {
             bcm_in.pedal_force = 100.0f;
-            bcm_out.hydraulic_pressure = 10.0f; // High enough to trigger lights
-        } else {
-            bcm_in.pedal_force = 0.0f;
-            bcm_out.hydraulic_pressure = 0.0f;
+            bcm_out.hydraulic_pressure = 10.0f;
         }
 
         /* 3. Run Professional Safety Logic */
