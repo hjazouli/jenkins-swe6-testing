@@ -208,9 +208,13 @@ void main(void) {
 
     /* 5. Telemetry Logging */
     if (bcm_in.pedal_force > 0.1f) {
-      uart_print("[BCM] Pedal: DEPRESSED | Lights: ACTIVE | F: ");
+      uart_print("[BCM] IN_P:");
+      print_int((int)bcm_in.pedal_force);
+      uart_print(" | IN_S:");
+      print_int((int)bcm_in.vehicle_speed);
+      uart_print(" | F:");
       print_int((int)bcm_out.front_hydraulic_pressure);
-      uart_print(" | R: ");
+      uart_print(" | R:");
       print_int((int)bcm_out.rear_hydraulic_pressure);
       uart_print("\r\n");
     } else {
