@@ -160,8 +160,8 @@ void main(void) {
 
   while (1) {
     /* A. Check for Remote Manipulation (HiL Interface) */
-    int rx_byte = uart_read();
-    if (rx_byte != -1) {
+    int rx_byte;
+    while ((rx_byte = uart_read()) != -1) {
       if (rx_byte == '\n' || rx_byte == '\r') {
         cmd_buffer[cmd_idx] = '\0'; // Seal the string
         if (cmd_idx > 1) {
@@ -187,11 +187,12 @@ void main(void) {
     }
 
     /* 1. Read Blue Button (Physical Fallback) */
-    /* If button is pressed, it overrides remote 'p' */
+    /* If button is pressed, it forces pedal to 100% */
     if (((GPIOC_IDR & (1 << 13)) == 0)) {
       bcm_in.pedal_force = 100.0f;
       bcm_out.hydraulic_pressure = 10.0f;
     }
+    // REMOVED ELSE: This allows UART commands to persist when button is released!
 
     /* 3. Run Safety Logic */
     BCM_Safety_Check(&bcm_in, &bcm_out);
