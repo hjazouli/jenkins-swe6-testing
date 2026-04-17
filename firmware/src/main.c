@@ -162,6 +162,7 @@ void main(void) {
     /* A. Check for Remote Manipulation (HiL Interface) */
     int rx_byte;
     while ((rx_byte = uart_read()) != -1) {
+      GPIOA_ODR ^= (1 << 5); // BLINK ON EVERY BYTE!
       if (rx_byte == '\n' || rx_byte == '\r') {
         cmd_buffer[cmd_idx] = '\0'; // Seal the string
         if (cmd_idx > 1) {
@@ -216,7 +217,7 @@ void main(void) {
       // Only print idle sporadically to avoid spamming
       static uint32_t idle_count = 0;
       if (++idle_count > 100) {
-        uart_print("[BCM] Status: IDLE | FLAG: ");
+        uart_print("[BCM] ONLINE_V2 | FLAG: ");
         // Convert status_flag to a simple hex digit for UART
         char f = (bcm_out.status_flag < 10) ? (bcm_out.status_flag + '0')
                                             : (bcm_out.status_flag - 10 + 'A');
