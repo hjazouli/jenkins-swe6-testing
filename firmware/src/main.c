@@ -205,18 +205,7 @@ void main(void) {
       print_int((int)bcm_out.rear_hydraulic_pressure);
       uart_print("\r\n");
     }
-    else
-    {
-      static uint32_t idle_timer = 0;
-      if (++idle_timer > 500)
-      {
-        uart_print("[BCM] ONLINE_V2 | STATUS: ");
-        char f = (bcm_out.status_flag < 10) ? (bcm_out.status_flag + '0') : (bcm_out.status_flag - 10 + 'A');
-        uart_write(f);
-        uart_print("\r\n");
-        idle_timer = 0;
-      }
-    }
+    // SILENCE IS GOLDEN: Removed idle print to prevent RX overflow
 
     /* D. Heartbeat LED Toggle (Visual Life Proof) */
     static uint32_t heartbeat_cnt = 0;
