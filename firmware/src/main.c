@@ -177,6 +177,7 @@ void main(void) {
           if (cmd_type == 'S') {
             bcm_in.vehicle_speed = val;
           }
+          uart_print("[ACK] Received: "); uart_write(cmd_type); uart_print("\r\n");
         }
         cmd_idx = 0; // Reset for next message
       } else if (cmd_idx < 31) {
