@@ -151,7 +151,11 @@ void main(void) {
             // Only print idle sporadically to avoid spamming
             static uint32_t idle_count = 0;
             if (++idle_count > 100) {
-                uart_print("[BCM] Status: IDLE\r\n");
+                uart_print("[BCM] Status: IDLE | FLAG: ");
+                // Convert status_flag to a simple hex digit for UART
+                char f = (bcm_out.status_flag < 10) ? (bcm_out.status_flag + '0') : (bcm_out.status_flag - 10 + 'A');
+                uart_write(f);
+                uart_print("\r\n");
                 idle_count = 0;
             }
         }
