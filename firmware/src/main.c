@@ -151,14 +151,9 @@ void main(void) {
   bcm_in.brake_temp_celsius = 45.0f; // Nominal
   bcm_in.vehicle_speed = 60.0f;
 
-  uart_print("\r\n=================================\r\n");
-  uart_print("  BCM BRAKE CONTROLLER READY\r\n");
+  uart_print("\r\n--- BCM BOOTED ---\r\n");
   uart_print("  VERSION: ");
   uart_print(BCM_SW_VERSION);
-  uart_print("\r\n  TS:      ");
-  uart_print(__DATE__);
-  uart_print(" ");
-  uart_print(__TIME__);
   uart_print("\r\n=================================\r\n");
 
   while (1)
@@ -167,7 +162,6 @@ void main(void) {
     int rx_byte;
     while ((rx_byte = uart_read()) != -1)
     {
-      GPIOA_ODR ^= (1 << 5); // THE "TRUTH" BLINK
       if (rx_byte == '\n' || rx_byte == '\r')
       {
         cmd_buffer[cmd_idx] = '\0';
