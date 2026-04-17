@@ -83,6 +83,25 @@ void uart_print(char *str) {
     }
 }
 
+/* Simple parser to convert "123.4" strings to float */
+float parse_float(char* s) {
+    float res = 0.0, fact = 1.0;
+    int point_seen = 0;
+    if (*s == '-') { s++; fact = -1.0; }
+    for (; *s; s++) {
+        if (*s == '.') { point_seen = 1; continue; }
+        int d = *s - '0';
+        if (d >= 0 && d <= 9) {
+            if (point_seen) fact /= 10.0f;
+            res = res * 10.0f + (float)d;
+        }
+    }
+    return res * fact;
+}
+
+char cmd_buffer[32];
+int cmd_idx = 0;
+
 void main(void) {
     /* 0. Enable FPU (Coprocessor 10 and 11) */
     /* This prevents a HardFault when using float variables */
@@ -117,14 +136,22 @@ void main(void) {
 
     while (1) {
         /* A. Check for Remote Manipulation (HiL Interface) */
-        int cmd = uart_read();
-        if (cmd != -1) {
-            if (cmd == 'P') { bcm_in.pedal_force = 100.0f; bcm_out.hydraulic_pressure = 10.0f; }
-            if (cmd == 'p') { bcm_in.pedal_force = 0.0f; bcm_out.hydraulic_pressure = 0.0f; }
-            if (cmd == 'T') { bcm_in.brake_temp_celsius = 250.0f; }
-            if (cmd == 't') { bcm_in.brake_temp_celsius = 45.0f; }
-            if (cmd == 'S') { bcm_in.vehicle_speed += 10.0f; }
-            if (cmd == 's') { bcm_in.vehicle_speed = 0.0f; }
+        int rx_byte = uart_read();
+        if (rx_byte != -1) {
+            if (rx_byte == '\n' || rx_byte == '\r') {
+                cmd_buffer[cmd_idx] = '\0'; // Seal the string
+                if (cmd_idx > 1) {
+                    char cmd_type = cmd_buffer[0];
+                    float val = parse_float(&cmd_buffer[1]);
+                    
+                    if (cmd_type == 'P') { bcm_in.pedal_force = val; bcm_out.hydraulic_pressure = val / 10.0f; }
+                    if (cmd_type == 'T') { bcm_in.brake_temp_celsius = val; }
+                    if (cmd_type == 'S') { bcm_in.vehicle_speed = val; }
+                }
+                cmd_idx = 0; // Reset for next message
+            } else if (cmd_idx < 31) {
+                cmd_buffer[cmd_idx++] = (char)rx_byte;
+            }
         }
 
         /* 1. Read Blue Button (Physical Fallback) */
