@@ -150,6 +150,13 @@ void command_handler(void) {
         if (type == 'P') bcm_in.pedal_force = val;
         if (type == 'T') bcm_in.brake_temp_celsius = val;
         if (type == 'S') bcm_in.vehicle_speed = val;
+        if (type == 'R') {
+          /* Total System Reset */
+          memset(&bcm_in, 0, sizeof(bcm_in));
+          memset(&bcm_out, 0, sizeof(bcm_out));
+          BCM_Init(&bcm_out); // Re-initialize default output states
+          uart_print("[SYS] RESET PERFORMED\r\n");
+        }
         if (type == 'V') {
           uart_print("[VER] ");
           uart_print(BCM_SW_VERSION);

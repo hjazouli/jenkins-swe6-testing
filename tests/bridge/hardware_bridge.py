@@ -58,6 +58,10 @@ class HardwareBridge:
     def set_speed(self, speed: float):
         self._send_command(f"S{speed}\n")
 
+    def reset(self):
+        """Forces a global ECU state reset."""
+        self._send_command("R\n")
+
     def get_sw_version(self):
         """Queries the board for its software version."""
         self.serial.reset_input_buffer()

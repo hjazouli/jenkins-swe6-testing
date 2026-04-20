@@ -10,7 +10,7 @@ static float s_ebd_last_speed = 0.0f;
  */
 void BCM_Ebd_PerformSplit(const BcmInput_t* in, BcmOutput_t* out) {
   /* Calculate deceleration in m/s^2 (Task rate = 10ms = 0.01) */
-  float deceleration = ((s_ebd_last_speed - in->vehicle_speed) / 0.01f) / 3.6f;
+  float deceleration = ((s_ebd_last_speed - in->vehicle_speed) / 0.001f) / 3.6f;
 
   if (deceleration > BCM_CFG_EBD_DECEL_THRESHOLD) {
     out->front_hydraulic_pressure = out->hydraulic_pressure;

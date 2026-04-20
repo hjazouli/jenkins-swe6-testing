@@ -20,6 +20,7 @@ def bcm_target(request):
 
     if target_type == "hardware":
         bridge = HardwareBridge()
+        bridge.reset() # Ensure clean state for every test
         yield bridge
         bridge.close()
     else:
