@@ -8,7 +8,7 @@ static float s_ebd_last_speed = 0.0f;
  * @brief Splits pressure between front and rear based on deceleration.
  * @req SWE_REQ_013
  */
-void BCM_Ebd_PerformSplit(const BcmInput_t *in, BcmOutput_t *out) {
+void BCM_Ebd_PerformSplit(const BcmInput_t* in, BcmOutput_t* out) {
   /* Calculate deceleration in m/s^2 (Task rate = 10ms = 0.01) */
   float deceleration = ((s_ebd_last_speed - in->vehicle_speed) / 0.01f) / 3.6f;
 

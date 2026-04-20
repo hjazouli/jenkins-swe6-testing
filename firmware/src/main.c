@@ -1,6 +1,5 @@
 #include <stdint.h>
 #include <string.h>
-#include <stdio.h>
 
 #include "bcm_iface.h"
 #include "bcm_types.h"
@@ -49,8 +48,6 @@ void delay(volatile uint32_t count) {
     __asm("nop");
   }
 }
-
-static uint32_t s_tick_count = 0;
 
 void uart_init(void) {
   RCC_AHB1ENR |= 0x01;
@@ -185,25 +182,24 @@ void main(void) {
       }
     }
 
-    /* B. Execution of BCM Logic Sequencer */
-    BCM_Step(&bcm_in, &bcm_out);
+    /* B. Run Safety Logic */
+    BCM_Safety_Check(&bcm_in, &bcm_out);
+    BCM_Ebd_PerformSplit(&bcm_in, &bcm_out);
 
-    /* C. Periodic Telemetry (Throttle to ~10Hz) */
-    if (s_tick_count % 100 == 0)
+    /* C. Telemetry Logic (Memory Inspector) */
+    if (bcm_in.pedal_force > 0.1f)
     {
-      char telemetry[128];
-      const char *light_str = (bcm_out.status_flag & 0x01) ? "ACTIVE" : "OFF";
-      
-      sprintf(telemetry, "[BCM-V101] P:%d S:%d F:%d R:%d Lights:%s FLAG:0x%02X\r\n",
-              (int)bcm_in.pedal_force,
-              (int)bcm_in.vehicle_speed,
-              (int)bcm_out.front_hydraulic_pressure,
-              (int)bcm_out.rear_hydraulic_pressure,
-              light_str,
-              (unsigned int)bcm_out.status_flag);
-      
-      uart_print(telemetry);
+      uart_print("[BCM] IN_P:");
+      print_int((int)bcm_in.pedal_force);
+      uart_print(" | IN_S:");
+      print_int((int)bcm_in.vehicle_speed);
+      uart_print(" | F:");
+      print_int((int)bcm_out.front_hydraulic_pressure);
+      uart_print(" | R:");
+      print_int((int)bcm_out.rear_hydraulic_pressure);
+      uart_print("\r\n");
     }
+    // SILENCE IS GOLDEN: Removed idle print to prevent RX overflow
 
     /* D. Heartbeat LED Toggle (Visual Life Proof) */
     static uint32_t heartbeat_cnt = 0;
@@ -214,6 +210,5 @@ void main(void) {
     }
 
     delay(1000); 
-    s_tick_count++;
   }
 }

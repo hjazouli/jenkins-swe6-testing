@@ -29,8 +29,8 @@ flash_hardware:
     - mac-m4
   script:
     - echo "⚡ Physically Flashing the Nucleo-F401RE..."
-    - chmod +x ./scripts/deploy_bcm.sh
-    - ./scripts/deploy_bcm.sh
+    - chmod +x deploy_bcm.sh
+    - ./deploy_bcm.sh
   environment:
     name: hardware-bench
   only:

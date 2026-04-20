@@ -16,49 +16,34 @@ static uint8_t s_thermal_recovery_cnt = 0;
 /**
  * @brief Combined safety monitoring for lights, thermal and plausibility.
  */
-void BCM_Safety_Check(const BcmInput_t* in, BcmOutput_t* out)
-{
+void BCM_Safety_Check(const BcmInput_t* in, BcmOutput_t* out) {
   /* 0. Brake Light Control with Hysteresis */
-  if (out->hydraulic_pressure > HYDRAULIC_PRESSURE_HIGH_THRESHOLD)
-  {
+  if (out->hydraulic_pressure > HYDRAULIC_PRESSURE_HIGH_THRESHOLD) {
     out->status_flag |= 0x01; // LIGHTS ON
-  }
-  else if (out->hydraulic_pressure < HYDRAULIC_PRESSURE_LOW_THRESHOLD)
-  {
+  } else if (out->hydraulic_pressure < HYDRAULIC_PRESSURE_LOW_THRESHOLD) {
     out->status_flag &= ~0x01; // LIGHTS OFF
   }
 
   /* 1. Thermal Latching (SWE_REQ_007) */
-  if (in->brake_temp_celsius > BCM_CFG_BRAKE_OVERHEAT_THRESHOLD_C)
-  {
+  if (in->brake_temp_celsius > BCM_CFG_BRAKE_OVERHEAT_THRESHOLD_C) {
     s_thermal_fault_latch = 0x02; // THERMAL FAULT
     s_thermal_recovery_cnt = 0;
-  }
-  else if (s_thermal_fault_latch)
-  {
-    if (++s_thermal_recovery_cnt >= 3)
-    {
+  } else if (s_thermal_fault_latch) {
+    if (++s_thermal_recovery_cnt >= 3) {
       s_thermal_fault_latch = 0x00;
     }
   }
 
   /* 2. Safety Clamp (SWE_REQ_008) */
   if (s_thermal_fault_latch &&
-      out->hydraulic_pressure > BCM_CFG_THERMAL_CLAMP_MAX_PRESSURE)
-  {
+      out->hydraulic_pressure > BCM_CFG_THERMAL_CLAMP_MAX_PRESSURE) {
     out->hydraulic_pressure = BCM_CFG_THERMAL_CLAMP_MAX_PRESSURE;
   }
 
   /* 3. Plausibility Check (SWE_REQ_011) */
-  if (in->vehicle_speed >= s_plaus_last_speed && in->pedal_force > 50.0f)
-  {
-    if (++s_plaus_counter >= 5)
-    {
-      s_plaus_latch = 0x10;
-    }
-  }
-  else
-  {
+  if (in->vehicle_speed >= s_plaus_last_speed && in->pedal_force > 50.0f) {
+    if (++s_plaus_counter >= 5) s_plaus_latch = 0x10;
+  } else {
     s_plaus_counter = 0;
     /* Simplified recovery for brevity in refactor */
     s_plaus_latch = 0x00;
