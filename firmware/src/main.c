@@ -140,6 +140,10 @@ BcmInput_t bcm_in = {0};
 BcmOutput_t bcm_out = {0};
 
 void command_handler(void) {
+  static int s_lock = 0;
+  if (s_lock) return; // Prevent re-entrancy during uart_print recursion
+  s_lock = 1;
+
   int rx_byte;
   while ((rx_byte = uart_read()) != -1) {
     if (rx_byte == '\n' || rx_byte == '\r') {
@@ -169,6 +173,7 @@ void command_handler(void) {
       cmd_buffer[cmd_idx++] = (char)rx_byte;
     }
   }
+  s_lock = 0;
 }
 
 void main(void) {
