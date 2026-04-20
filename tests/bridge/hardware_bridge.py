@@ -32,6 +32,7 @@ class HardwareBridge:
 
     def get_sw_version(self):
         """Queries the board for its software version."""
+        self.serial.reset_input_buffer()
         self.serial.write(b"V\n")
         timeout_start = time.time()
         while time.time() < timeout_start + 2.0:
