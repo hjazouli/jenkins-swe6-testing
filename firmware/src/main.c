@@ -79,9 +79,13 @@ int uart_read(void) {
   return -1;
 }
 
+void command_handler(void); // Prototype for the new helper
+
 void uart_print(char *str) {
   while (*str) {
     uart_write(*str++);
+    // Check for incoming data between EVERY transmitted byte to prevent ORE
+    command_handler();
   }
 }
 
@@ -131,6 +135,35 @@ float parse_float(char *s) {
 char cmd_buffer[32];
 int cmd_idx = 0;
 
+/* Global state for BCM */
+BcmInput_t bcm_in = {0};
+BcmOutput_t bcm_out = {0};
+
+void command_handler(void) {
+  int rx_byte;
+  while ((rx_byte = uart_read()) != -1) {
+    if (rx_byte == '\n' || rx_byte == '\r') {
+      cmd_buffer[cmd_idx] = '\0';
+      if (cmd_idx >= 1) {
+        char type = cmd_buffer[0];
+        float val = parse_float(&cmd_buffer[1]);
+        if (type == 'P') bcm_in.pedal_force = val;
+        if (type == 'T') bcm_in.brake_temp_celsius = val;
+        if (type == 'S') bcm_in.vehicle_speed = val;
+        if (type == 'V') {
+          uart_print("[VER] ");
+          uart_print(BCM_SW_VERSION);
+          uart_print("\r\n");
+        }
+        uart_print("[ACK] RECEIVED\r\n");
+      }
+      cmd_idx = 0;
+    } else if (cmd_idx < 31) {
+      cmd_buffer[cmd_idx++] = (char)rx_byte;
+    }
+  }
+}
+
 void main(void) {
   /* 0. Enable FPU (Coprocessor 10 and 11) */
   /* This prevents a HardFault when using float variables */
@@ -147,9 +180,6 @@ void main(void) {
   GPIOC_MODER &= ~(0x03 << 26);
 
   /* Initialize BCM structures */
-  BcmInput_t bcm_in = {0};
-  BcmOutput_t bcm_out = {0};
-
   bcm_in.brake_temp_celsius = 45.0f; // Nominal
   bcm_in.vehicle_speed = 60.0f;
 
@@ -161,34 +191,7 @@ void main(void) {
   while (1)
   {
     /* A. Check for Remote Manipulation (HiL Interface) */
-    int rx_byte;
-    while ((rx_byte = uart_read()) != -1)
-    {
-      if (rx_byte == '\n' || rx_byte == '\r')
-      {
-        cmd_buffer[cmd_idx] = '\0';
-        if (cmd_idx >= 1)
-        {
-          char type = cmd_buffer[0];
-          float val = parse_float(&cmd_buffer[1]);
-          if (type == 'P') bcm_in.pedal_force = val;
-          if (type == 'T') bcm_in.brake_temp_celsius = val;
-          if (type == 'S') bcm_in.vehicle_speed = val;
-          if (type == 'V')
-          {
-            uart_print("[VER] ");
-            uart_print(BCM_SW_VERSION);
-            uart_print("\r\n");
-          }
-          uart_print("[ACK] RECEIVED\r\n");
-        }
-        cmd_idx = 0;
-      }
-      else if (cmd_idx < 31)
-      {
-        cmd_buffer[cmd_idx++] = (char)rx_byte;
-      }
-    }
+    command_handler();
 
     /* B. Execution of BCM Logic Sequencer */
     BCM_Step(&bcm_in, &bcm_out);
