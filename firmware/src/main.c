@@ -1,9 +1,13 @@
 #include <stdint.h>
-#include <string.h>
-#include <stdio.h>
-
 #include "bcm_iface.h"
 #include "bcm_types.h"
+
+/* Bare-metal memset replacement */
+void* memset(void* s, int c, uint32_t n) {
+  uint8_t* p = (uint8_t*)s;
+  while (n--) *p++ = (uint8_t)c;
+  return s;
+}
 
 // BCM interface includes all required module logic
 
