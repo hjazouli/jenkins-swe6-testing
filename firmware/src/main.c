@@ -5,9 +5,7 @@
 #include "bcm_iface.h"
 #include "bcm_types.h"
 
-// Explicit prototype to fix implicit declaration error
-void BCM_Safety_Check(const BcmInput_t *in, BcmOutput_t *out);
-void BCM_Ebd_PerformSplit(const BcmInput_t *in, BcmOutput_t *out);
+// BCM interface includes all required module logic
 
 /* Register addresses for STM32F401RE */
 #define RCC_BASE 0x40023800
@@ -55,8 +53,8 @@ static uint32_t s_tick_count = 0;
 void uart_init(void) {
   RCC_AHB1ENR |= 0x01;
   RCC_APB1ENR |= (1 << 17);
-  GPIOA_MODER &= ~((0x03 << 4) | (0x03 << 6));
-  GPIOA_MODER |= ((0x02 << 4) | (0x02 << 6));
+  GPIOA_MODER &= ~((0x03 << 4) | (0x03 << 6) | (0x03 << 10));
+  GPIOA_MODER |= ((0x02 << 4) | (0x02 << 6) | (0x01 << 10));
   GPIOA_AFRL &= ~((0x0F << 8) | (0x0F << 12));
   GPIOA_AFRL |= ((0x07 << 8) | (0x07 << 12));
   USART2_BRR = 0x068A; // 9600 baud
@@ -136,14 +134,10 @@ void main(void) {
   // IMPORTANT: Make sure the CPU looks at OUR vector table
   SCB_VTOR = 0x08004000;
 
+  /* 1. Hardware Initialization */
   uart_init();
 
-  /* Configure PA5 (LED) as Output */
-  RCC_AHB1ENR |= (1 << 0);
-  GPIOA_MODER &= ~(0x03 << 10);
-  GPIOA_MODER |= (0x01 << 10);
-
-  /* Configure PC13 (Button) as Input */
+  /* Configure PC13 (Button) as Input for future functional growth */
   RCC_AHB1ENR |= (1 << 2);
   GPIOC_MODER &= ~(0x03 << 26);
 
