@@ -175,6 +175,12 @@ void main(void) {
           if (type == 'P') bcm_in.pedal_force = val;
           if (type == 'T') bcm_in.brake_temp_celsius = val;
           if (type == 'S') bcm_in.vehicle_speed = val;
+          if (type == 'V')
+          {
+            uart_print("[VER] ");
+            uart_print(BCM_SW_VERSION);
+            uart_print("\r\n");
+          }
           uart_print("[ACK] RECEIVED\r\n");
         }
         cmd_idx = 0;

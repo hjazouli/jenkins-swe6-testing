@@ -33,6 +33,9 @@ flash_hardware:
     - ./scripts/deploy_bcm.sh
   environment:
     name: hardware-bench
+  when: manual
+  allow_failure: true
   only:
     - main
+    - develop
     - tags

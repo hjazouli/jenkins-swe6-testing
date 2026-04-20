@@ -30,21 +30,29 @@ class HardwareBridge:
     def set_speed(self, speed: float):
         self.serial.write(f"S{speed}\n".encode("utf-8"))
 
+    def get_sw_version(self):
+        """Queries the board for its software version."""
+        self.serial.write(b"V\n")
+        timeout_start = time.time()
+        while time.time() < timeout_start + 2.0:
+            line = self.serial.readline().decode("utf-8", errors="ignore").strip()
+            if "[VER]" in line:
+                return line.replace("[VER]", "").strip()
+        return "UNKNOWN"
+
     def get_status(self, wait_for_data=True):
         """Reads the board telemetry with raw output for debugging."""
         timeout_start = time.time()
-        while time.time() < timeout_start + 4.0: # Increased timeout to 4s
+        while time.time() < timeout_start + 4.0:
             line = self.serial.readline().decode("utf-8", errors="ignore").strip()
             if not line: continue
             
-            print(f"DEBUG-UART >> {line}") # X-RAY VISION LINE
+            print(f"DEBUG-UART >> {line}")
 
             if "[ACK]" in line: continue
 
-            # If it's a BCM message, decide whether to return it
-            if "[BCM]" in line:
-                if wait_for_data and "ONLINE_V2" in line:
-                    continue
+            # Recognize both [BCM] and [BCM-V101] (or any other versioned header)
+            if "[BCM" in line:
                 return line
         return ""
 
