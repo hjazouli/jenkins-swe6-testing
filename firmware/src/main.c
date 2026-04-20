@@ -196,6 +196,9 @@ void main(void) {
   GPIOC_MODER &= ~(0x03 << 26);
 
   /* Initialize BCM structures */
+  memset(&bcm_in, 0, sizeof(bcm_in));
+  memset(&bcm_out, 0, sizeof(bcm_out));
+
   bcm_in.brake_temp_celsius = 45.0f; // Nominal
   bcm_in.vehicle_speed = 60.0f;
 
