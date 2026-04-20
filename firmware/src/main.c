@@ -66,10 +66,14 @@ void uart_init(void) {
   USART2_CR1 = (1 << 13) | (1 << 3) | (1 << 2);
 }
 
-void uart_write(int ch) {
-  while (!(USART2_SR & (1 << 7)))
-    ;
-  USART2_DR = (ch & 0xFF);
+void command_handler(void); 
+
+void uart_write(int c) {
+  while (!(USART2_SR & 0x80)) {
+     // While waiting for the transmitter to be ready, check for incoming commands!
+     command_handler();
+  }
+  USART2_DR = (c & 0xFF);
 }
 
 int uart_read(void) {
@@ -141,6 +145,10 @@ BcmInput_t bcm_in = {0};
 BcmOutput_t bcm_out = {0};
 
 void command_handler(void) {
+  static int s_lock = 0;
+  if (s_lock) return;
+  s_lock = 1;
+
   int rx_byte;
   while ((rx_byte = uart_read()) != -1) {
     if (rx_byte == '\n' || rx_byte == '\r') {
@@ -170,6 +178,7 @@ void command_handler(void) {
       cmd_buffer[cmd_idx++] = (char)rx_byte;
     }
   }
+  s_lock = 0;
 }
 
 void main(void) {
@@ -201,17 +210,17 @@ void main(void) {
 
   while (1)
   {
-    /* Always check for commands at maximum speed (No delay!) */
+    /* Listen for commands at the fastest possible rate */
     command_handler();
 
-    /* B. Execution of BCM Logic Sequencer (Roughly 100Hz) */
-    if (s_loop_cnt % 100 == 0) {
+    /* Logic Sequencer (10,000 counts ~= 10ms task) */
+    if (s_loop_cnt % 10000 == 0) {
       BCM_Step(&bcm_in, &bcm_out);
-      s_tick_count++; // Logic tick for physics
+      s_tick_count++; 
     }
 
-    /* C. Periodic Telemetry (roughly 10Hz) */
-    if (s_tick_count % 100 == 0 && (s_loop_cnt % 100 == 0))
+    /* Telemetry Report (100 logic ticks = 1Hz reporting for stability) */
+    if (s_tick_count % 100 == 0 && (s_loop_cnt % 10000 == 0))
     {
       uart_print("[BCM-V101] P:");
       print_int((int)bcm_in.pedal_force);
@@ -228,8 +237,11 @@ void main(void) {
       uart_print("\r\n");
     }
 
-
-    delay(1000); 
-    s_tick_count++;
+    s_loop_cnt++;
+    
+    /* CPU Heartbeat (PA5) at ~2Hz visual speed */
+    if (s_loop_cnt % 500000 == 0) {
+        GPIOA_ODR ^= (1 << 5); 
+    }
   }
 }
