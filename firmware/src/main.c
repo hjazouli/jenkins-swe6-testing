@@ -162,7 +162,7 @@ void main(void) {
       if (rx_byte == '\n' || rx_byte == '\r')
       {
         cmd_buffer[cmd_idx] = '\0';
-        if (cmd_idx > 1)
+        if (cmd_idx >= 1)
         {
           char type = cmd_buffer[0];
           float val = parse_float(&cmd_buffer[1]);
