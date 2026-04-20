@@ -197,18 +197,19 @@ void main(void) {
     /* C. Periodic Telemetry (Throttle to ~10Hz) */
     if (s_tick_count % 100 == 0)
     {
-      char telemetry[128];
-      const char *light_str = (bcm_out.status_flag & 0x01) ? "ACTIVE" : "OFF";
-      
-      sprintf(telemetry, "[BCM-V101] P:%d S:%d F:%d R:%d Lights:%s FLAG:0x%02X\r\n",
-              (int)bcm_in.pedal_force,
-              (int)bcm_in.vehicle_speed,
-              (int)bcm_out.front_hydraulic_pressure,
-              (int)bcm_out.rear_hydraulic_pressure,
-              light_str,
-              (unsigned int)bcm_out.status_flag);
-      
-      uart_print(telemetry);
+      uart_print("[BCM-V101] P:");
+      print_int((int)bcm_in.pedal_force);
+      uart_print(" S:");
+      print_int((int)bcm_in.vehicle_speed);
+      uart_print(" F:");
+      print_int((int)bcm_out.front_hydraulic_pressure);
+      uart_print(" R:");
+      print_int((int)bcm_out.rear_hydraulic_pressure);
+      uart_print(" Lights:");
+      uart_print((bcm_out.status_flag & 0x01) ? "ACTIVE" : "OFF");
+      uart_print(" FLAG:");
+      print_int((int)bcm_out.status_flag);
+      uart_print("\r\n");
     }
 
     /* D. Heartbeat LED Toggle (Visual Life Proof) */

@@ -24,7 +24,11 @@ SRCS = src/main.c \
        $(BCM_PATH)/src/bcm_core.c \
        $(BCM_PATH)/src/bcm_safety.c \
        $(BCM_PATH)/src/bcm_ebd.c \
-       $(BCM_PATH)/src/bcm_abs.c
+       $(BCM_PATH)/src/bcm_abs.c \
+       $(BCM_PATH)/src/bcm_diag.c \
+       $(BCM_PATH)/src/bcm_hsa.c \
+       $(BCM_PATH)/src/bcm_hwmon.c \
+       $(BCM_PATH)/src/bcm_regen.c
 
 # Targets
 all: blinky.bin
