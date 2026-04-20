@@ -62,7 +62,7 @@ void uart_init(void) {
   GPIOA_MODER |= ((0x02 << 4) | (0x02 << 6) | (0x01 << 10));
   GPIOA_AFRL &= ~((0x0F << 8) | (0x0F << 12));
   GPIOA_AFRL |= ((0x07 << 8) | (0x07 << 12));
-  USART2_BRR = 0x008B; // 115200 baud @ 16MHz HSI
+  USART2_BRR = 0x068A; // 9600 baud @ 16MHz
   USART2_CR1 = (1 << 13) | (1 << 3) | (1 << 2);
 }
 
