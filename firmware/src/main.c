@@ -68,7 +68,12 @@ void uart_write(int ch) {
 }
 
 int uart_read(void) {
-  if (USART2_SR & (1 << 5)) { // RXNE (Read data register not empty)
+  uint32_t sr = USART2_SR;
+  if (sr & 0x08) { // ORE: Overrun Error
+    (void)USART2_DR; // Dummy read to clear ORE
+    return -1;
+  }
+  if (sr & (1 << 5)) { // RXNE (Read data register not empty)
     return USART2_DR & 0xFF;
   }
   return -1;
