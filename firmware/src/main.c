@@ -53,6 +53,7 @@ void delay(volatile uint32_t count) {
 }
 
 static uint32_t s_tick_count = 0;
+static uint32_t s_loop_cnt = 0;
 
 void uart_init(void) {
   RCC_AHB1ENR |= 0x01;
@@ -200,14 +201,17 @@ void main(void) {
 
   while (1)
   {
-    /* A. Check for Remote Manipulation (HiL Interface) */
+    /* Always check for commands at maximum speed (No delay!) */
     command_handler();
 
-    /* B. Execution of BCM Logic Sequencer */
-    BCM_Step(&bcm_in, &bcm_out);
+    /* B. Execution of BCM Logic Sequencer (Roughly 100Hz) */
+    if (s_loop_cnt % 100 == 0) {
+      BCM_Step(&bcm_in, &bcm_out);
+      s_tick_count++; // Logic tick for physics
+    }
 
-    /* C. Periodic Telemetry (Throttle to ~10Hz) */
-    if (s_tick_count % 100 == 0)
+    /* C. Periodic Telemetry (roughly 10Hz) */
+    if (s_tick_count % 100 == 0 && (s_loop_cnt % 100 == 0))
     {
       uart_print("[BCM-V101] P:");
       print_int((int)bcm_in.pedal_force);
@@ -224,13 +228,6 @@ void main(void) {
       uart_print("\r\n");
     }
 
-    /* D. Heartbeat LED Toggle (Visual Life Proof) */
-    static uint32_t heartbeat_cnt = 0;
-    if (++heartbeat_cnt > 100)
-    {
-      GPIOA_ODR ^= (1 << 5); 
-      heartbeat_cnt = 0;
-    }
 
     delay(1000); 
     s_tick_count++;
