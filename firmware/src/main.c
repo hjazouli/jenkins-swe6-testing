@@ -144,6 +144,8 @@ int cmd_idx = 0;
 BcmInput_t bcm_in = {0};
 BcmOutput_t bcm_out = {0};
 
+static char s_rsp[64] = {0};
+
 void command_handler(void) {
   static int s_lock = 0;
   if (s_lock) return;
@@ -160,18 +162,17 @@ void command_handler(void) {
         if (type == 'T') bcm_in.brake_temp_celsius = val;
         if (type == 'S') bcm_in.vehicle_speed = val;
         if (type == 'R') {
-          /* Total System Reset */
           memset(&bcm_in, 0, sizeof(bcm_in));
           memset(&bcm_out, 0, sizeof(bcm_out));
-          BCM_Init(&bcm_out); // Re-initialize default output states
-          uart_print("[SYS] RESET PERFORMED\r\n");
+          BCM_Init(&bcm_out);
+          /* Match Python expected string: [SYS] RESET PERFORMED */
+          char* msg = "[SYS] RESET PERFORMED\r\n";
+          for(int i=0; msg[i] && i<60; i++) s_rsp[i] = msg[i];
+        } else {
+          /* Match Python expected string: [ACK] RECEIVED */
+          char* msg = "[ACK] RECEIVED\r\n";
+          for(int i=0; msg[i] && i<60; i++) s_rsp[i] = msg[i];
         }
-        if (type == 'V') {
-          uart_print("[VER] ");
-          uart_print(BCM_SW_VERSION);
-          uart_print("\r\n");
-        }
-        uart_print("[ACK] RECEIVED\r\n");
       }
       cmd_idx = 0;
     } else if (cmd_idx < 31) {
@@ -213,13 +214,19 @@ void main(void) {
     /* Listen for commands at the fastest possible rate */
     command_handler();
 
-    /* Logic Sequencer (10,000 counts ~= 10ms task) */
+    /* B. BCM Logic (Roughly 100Hz) */
     if (s_loop_cnt % 10000 == 0) {
       BCM_Step(&bcm_in, &bcm_out);
       s_tick_count++; 
     }
 
-    /* Telemetry Report (100 logic ticks = 1Hz reporting for stability) */
+    /* C. Handle Responses (Avoid interleaving) */
+    if (s_rsp[0] != '\0') {
+      uart_print(s_rsp);
+      memset(s_rsp, 0, sizeof(s_rsp));
+    }
+
+    /* D. Telemetry Report (roughly 1Hz) */
     if (s_tick_count % 100 == 0 && (s_loop_cnt % 10000 == 0))
     {
       uart_print("[BCM-V101] P:");
