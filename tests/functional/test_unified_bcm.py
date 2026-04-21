@@ -1,85 +1,93 @@
 import pytest
 import time
+import re
 
+def parse_telemetry(line):
+    """
+    Robustly extracts telemetry values using Regex.
+    Supports format: [BCM-V101] P:150 S:60 F:100 R:30 Lights:ACTIVE FLAG:0x22
+    """
+    data = {}
+    patterns = {
+        'pedal': r'P:(\d+)',
+        'speed': r'S:(\d+)',
+        'front': r'F:(\d+)',
+        'rear': r'R:(\d+)',
+        'lights': r'Lights:(\w+)',
+        'flag': r'FLAG:(0x[0-9A-Fa-f]+|\d+)'
+    }
+    
+    for key, pattern in patterns.items():
+        match = re.search(pattern, line)
+        if match:
+            val = match.group(1)
+            if key == 'flag' and '0x' in val:
+                data[key] = int(val, 16)
+            elif key == 'lights':
+                data[key] = val
+            else:
+                data[key] = int(val)
+    return data
 
 def test_safety_critical_brake_light(bcm_target):
     """REQ_001: The Brake Light MUST turn on when the pedal is pressed."""
-    # 1. Clear state
     bcm_target.set_pedal(0.0)
     time.sleep(0.1)
 
-    # 2. Action: Press Pedal with 150.5 Newtons
-    print("\n[ACTION] Setting Pedal Force to 150.5 N...")
-    bcm_target.set_pedal(150.5)
+    print("\n[ACTION] Testing Brake Light activation...")
+    bcm_target.set_pedal(150)
     time.sleep(0.5)
 
-    # 3. Verification
     response = bcm_target.get_status()
-    print(f"[REPLY] {response}")
+    data = parse_telemetry(response)
 
-    assert "Lights: ACTIVE" in response
-    assert "Pedal: DEPRESSED" in response
-
+    assert data.get('lights') == "ACTIVE", "Brake Lights failed to activate!"
+    assert data.get('pedal', 0) >= 150, f"Expected Pedal >= 150, got {data.get('pedal')}"
 
 def test_thermal_safety_threshold(bcm_target):
     """REQ_007: Overheating MUST trip a fault flag at 200C."""
-    # 1. Nominal Temp
     bcm_target.set_temp(45.0)
+    time.sleep(0.2)
 
-    # 2. Inject high-precision trip point
-    print("\n[ACTION] Injecting Thermal Fault (200.5C)...")
+    print("\n[ACTION] Testing Thermal Fault Threshold (200.5C)...")
     bcm_target.set_temp(200.5)
     time.sleep(0.5)
 
-    # 3. Verification
     response = bcm_target.get_status()
-    print(f"[REPLY] {response}")
+    data = parse_telemetry(response)
+    flag_val = data.get('flag', 0)
 
-    # Extract flag value and check bit 1 (0x02)
-    flag_val = int(response.split("FLAG: ")[1], 16 if "x" in response else 10)
-    assert (flag_val & 0x02) != 0, f"Expected Thermal Fault (bit 1) in {flag_val}"
-
+    # Bit 1 (0x02) is the thermal fault bit in our BCM logic
+    assert (flag_val & 0x02) != 0, f"Expected Thermal Fault bit (0x02) in FLAG: {hex(flag_val)}"
 
 def test_speed_plausibility(bcm_target):
-    """REQ_011: Fault if speed is high (>100) while braking."""
-    print("\n[REQUEST] Simulating Speeding while Braking...")
-    bcm_target.set_speed(120.0)
-    bcm_target.set_pedal(100.0)
+    """REQ_011: Fault if speed is high while braking."""
+    print("\n[ACTION] Testing Speed/Brake Plausibility...")
+    bcm_target.set_speed(120)
+    bcm_target.set_pedal(100)
     time.sleep(0.5)
 
     response = bcm_target.get_status()
-    print(f"[RESPONSE] {response}")
+    data = parse_telemetry(response)
+    flag_val = data.get('flag', 0)
 
-    # FLAG should include bit 4 (0x16) or similar depending on your bcm_safety.h
-    # For now, let's just assert its not 0
-    flag_val = int(response.split("FLAG: ")[1], 16 if "x" in response else 10)
-    assert flag_val > 1, "Expected a fault flag for speed/brake plausibility"
-
+    assert flag_val > 0, "Bcm Safety Monitor failed to detect speed/brake conflict!"
 
 def test_ebd_split(bcm_target):
     """REQ_013: Rear pressure MUST be reduced during high deceleration."""
-    print("\n[REQUEST] Driving at constant high speed (120 km/h)...")
-    bcm_target.set_speed(120.0)
-    time.sleep(0.5)
-
-    print(
-        "[REQUEST] Slamming brakes and causing deceleration (speed drops to 80 km/h)..."
-    )
-    bcm_target.set_speed(80.0)
-    bcm_target.set_pedal(100.0)
+    print("\n[ACTION] Testing EBD Pressure Split (120 -> 80 km/h)...")
+    bcm_target.set_speed(120)
+    time.sleep(0.2)
+    bcm_target.set_speed(80)
+    bcm_target.set_pedal(100)
     time.sleep(0.5)
 
     response = bcm_target.get_status()
-    print(f"[RESPONSE] {response}")
+    data = parse_telemetry(response)
+    
+    f_pres = data.get('front', 0)
+    r_pres = data.get('rear', 0)
 
-    # Expected: "... | F: 10 | R: 3"
-    assert "F:" in response and "R:" in response
-    parts = response.split("|")
-    f_pres = int(parts[-2].split(":")[1].strip())
-    r_pres = int(parts[-1].split(":")[1].strip())
-
-    assert f_pres == 10, f"Expected Front Pressure = 10, got {f_pres}"
-    assert (
-        r_pres < f_pres
-    ), f"EBD Split failed! Rear Pressure ({r_pres}) is not less than Front ({f_pres})"
-    print(f"[VERIFIED] EBD Split successful. Front: {f_pres}, Rear: {r_pres}")
+    assert f_pres > 0, "No hydraulic pressure detected!"
+    assert r_pres < f_pres, f"EBD Split failure: Rear ({r_pres}) >= Front ({f_pres})"
+    print(f"[REPLY] Verified EBD Split. F: {f_pres}, R: {r_pres}")

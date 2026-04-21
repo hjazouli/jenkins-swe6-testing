@@ -6,7 +6,7 @@ BAUD_RATE = 9600
 
 def run_performance_test():
     print(f"PERFORMANCE & STRESS TEST on {SERIAL_PORT}")
-    ser = serial.Serial(SERIAL_PORT, BAUD_RATE, timeout=0.1)
+    ser = serial.Serial(SERIAL_PORT, BAUD_RATE, timeout=2.0)
     
     # 1. Latency Baseline
     print("\nSTAGE 1: MEASURING ROUND-TRIP LATENCY...")

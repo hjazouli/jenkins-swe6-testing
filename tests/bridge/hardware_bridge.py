@@ -22,7 +22,7 @@ class HardwareBridge:
         print(f" {Color.BLUE}↳ Waiting for board to boot...{Color.END}")
         while time.time() < timeout_start + 5.0:
             line = self.serial.readline().decode("utf-8", errors="ignore").strip()
-            if "--- BCM BOOTED ---" in line:
+            if "--- BCM SYSTICK ONLINE ---" in line:
                 print(f" {Color.GREEN}↳ Board is ONLINE! ✅{Color.END}")
                 break
 
