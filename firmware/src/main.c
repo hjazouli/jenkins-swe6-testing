@@ -250,6 +250,11 @@ void main(void) {
       }
     }
 
-    s_loop_cnt++; // Still counting raw loops for performance metrics
+    /* Raw Loop Pulse (Verify UART life if SysTick is stalled) */
+    if (s_loop_cnt % 1000000 == 0) {
+       uart_print(" [RAW] LOOP ALIVE\r\n");
+    }
+
+    s_loop_cnt++; 
   }
 }
