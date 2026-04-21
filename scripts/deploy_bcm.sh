@@ -12,7 +12,7 @@ make -C $FIRMWARE_DIR clean all
 
 echo "⚡ --- FLASHING FIRMWARE TO 0x08000000 ---"
 # We now flash to the base address (0x08000000) as the bootloader is retired
-st-flash write $BINARY_PATH 0x08000000
+st-flash --connect-under-reset write $BINARY_PATH 0x08000000
 
 echo "🔄 --- RESETTING BOARD ---"
 st-flash reset
