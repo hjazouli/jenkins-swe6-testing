@@ -44,7 +44,6 @@
 
 /* USER CODE BEGIN PV */
 static uint32_t s_tick_count = 0;
-static uint32_t s_loop_cnt = 0;
 BcmInput_t bcm_in = {0};
 BcmOutput_t bcm_out = {0};
 char cmd_buffer[32];
@@ -59,8 +58,8 @@ static void MX_USART2_UART_Init(void);
 void uart_write(int ch);
 void uart_print(char *str);
 void print_int(int val);
-float parse_float(char *s);
-void command_handler(void);
+void BCM_Periodic_Task(void);
+void BCM_UART_RX_Callback(uint8_t byte);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -78,9 +77,8 @@ int uart_read(void) {
 }
 
 void uart_write(int c) {
-  /* Poll command handler while waiting for TXE to ensure no bytes are lost */
+  /* No need to poll command_handler here; interrupts handle RX asynchronously */
   while (!LL_USART_IsActiveFlag_TXE(USART2)) {
-    command_handler();
   }
   LL_USART_TransmitData8(USART2, (uint8_t)c);
 }
@@ -115,36 +113,62 @@ float parse_float(char *s) {
   return res * fact;
 }
 
-void command_handler(void) {
-  int rx_byte;
-  while ((rx_byte = uart_read()) != -1) {
-    /* Echo byte immediately for real-time serial verification */
-    uart_write((char)rx_byte);
-    
-    /* Toggle LED (LD2) on RX activity */
-    LL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
+void BCM_UART_RX_Callback(uint8_t rx_byte) {
+  /* This is called by USART2_IRQHandler */
+  if (rx_byte == '\n' || rx_byte == '\r') {
+    if (cmd_idx >= 1) {
+      cmd_buffer[cmd_idx] = '\0';
+      char type = cmd_buffer[0];
+      float val = parse_float(&cmd_buffer[1]);
 
-    if (rx_byte == '\n' || rx_byte == '\r') {
-      if (cmd_idx >= 1) {
-        cmd_buffer[cmd_idx] = '\0';
-        char type = cmd_buffer[0];
-        float val = parse_float(&cmd_buffer[1]);
-
-        if (type == 'P') bcm_in.pedal_force = val;
-        else if (type == 'T') bcm_in.brake_temp_celsius = val;
-        else if (type == 'S') bcm_in.vehicle_speed = val;
-        else if (type == 'R') {
-          memset(&bcm_in, 0, sizeof(bcm_in));
-          memset(&bcm_out, 0, sizeof(bcm_out));
-          BCM_Init(&bcm_out);
-          uart_print("[SYS] RESET PERFORMED\r\n");
-        } else {
-          uart_print("[ACK] RECEIVED\r\n");
-        }
-        cmd_idx = 0;
+      if (type == 'P') bcm_in.pedal_force = val;
+      else if (type == 'T') bcm_in.brake_temp_celsius = val;
+      else if (type == 'S') bcm_in.vehicle_speed = val;
+      else if (type == 'R') {
+        memset(&bcm_in, 0, sizeof(bcm_in));
+        memset(&bcm_out, 0, sizeof(bcm_out));
+        BCM_Init(&bcm_out);
+        uart_print("[SYS] RESET PERFORMED\r\n");
+      } else {
+        uart_print("[ACK] RECEIVED\r\n");
       }
-    } else if (cmd_idx < 30) {
-      cmd_buffer[cmd_idx++] = (char)rx_byte;
+      cmd_idx = 0;
+    }
+  } else if (cmd_idx < 30) {
+    cmd_buffer[cmd_idx++] = (char)rx_byte;
+  }
+}
+
+void BCM_Periodic_Task(void) {
+  /* This is called by SysTick_Handler every 1ms */
+  s_tick_count++;
+
+  /* Run BCM Logic Step @ 100Hz (every 10ms) */
+  if (s_tick_count % 10 == 0) {
+    BCM_Step(&bcm_in, &bcm_out);
+    
+    /* Telemetry Report @ 1Hz */
+    if (s_tick_count % 1000 == 0) {
+      uart_print("[BCM-V101] T:");
+      print_int((int)s_tick_count);
+      uart_print(" P:");
+      print_int((int)bcm_in.pedal_force);
+      uart_print(" S:");
+      print_int((int)bcm_in.vehicle_speed);
+      uart_print(" F:");
+      print_int((int)bcm_out.front_hydraulic_pressure);
+      uart_print(" R:");
+      print_int((int)bcm_out.rear_hydraulic_pressure);
+      uart_print(" Lights:");
+      uart_print((bcm_out.status_flag & 0x01) ? "ACTIVE" : "OFF");
+      uart_print(" FLAG:");
+      print_int((int)bcm_out.status_flag);
+      uart_print("\r\n");
+    }
+
+    /* CPU Heartbeat LED toggle every 0.5s */
+    if (s_tick_count % 500 == 0) {
+      LL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
     }
   }
 }
@@ -194,51 +218,21 @@ int main(void)
   bcm_in.brake_temp_celsius = 45.0f;
   bcm_in.vehicle_speed = 60.0f;
   
-  uart_print("--- BCM SYSTICK ONLINE ---\r\n");
+  SysTick->CTRL |= SysTick_CTRL_TICKINT_Msk; 
+  
+  LL_USART_EnableIT_RXNE(USART2);
+  NVIC_SetPriority(USART2_IRQn, NVIC_EncodePriority(NVIC_GetPriorityGrouping(), 5, 0));
+  NVIC_EnableIRQ(USART2_IRQn);
+
+  uart_print("\r\n--- BCM INTERRUPT ARCH ONLINE ---\r\n");
   /* USER CODE END 2 */
 
   /* Infinite loop */
     /* USER CODE BEGIN WHILE */
     while (1)
     {
-      /* 1. Poll UART Commands */
-      command_handler();
-
-      /* 2. Check for SysTick (Deterministic 100Hz Heartbeat) */
-      /* Note: SysTick is running at 1ms natively, we check the COUNTFLAG for logic steps */
-      if (SysTick->CTRL & SysTick_CTRL_COUNTFLAG_Msk) {
-        s_tick_count++;
-
-        /* Run BCM Logic Step @ 100Hz (every 10 ticks) */
-        if (s_tick_count % 10 == 0) {
-          BCM_Step(&bcm_in, &bcm_out);
-          
-          /* D. Telemetry Report (Every 1000 Logic Ticks = 1Hz) */
-          if (s_tick_count % 1000 == 0) {
-            uart_print("[BCM-V101] T:");
-            print_int((int)s_tick_count);
-            uart_print(" P:");
-            print_int((int)bcm_in.pedal_force);
-            uart_print(" S:");
-            print_int((int)bcm_in.vehicle_speed);
-            uart_print(" F:");
-            print_int((int)bcm_out.front_hydraulic_pressure);
-            uart_print(" R:");
-            print_int((int)bcm_out.rear_hydraulic_pressure);
-            uart_print(" Lights:");
-            uart_print((bcm_out.status_flag & 0x01) ? "ACTIVE" : "OFF");
-            uart_print(" FLAG:");
-            print_int((int)bcm_out.status_flag);
-            uart_print("\r\n");
-          }
-
-          /* CPU Heartbeat (LD2) toggle every 0.5s */
-          if (s_tick_count % 500 == 0) {
-            LL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
-          }
-        }
-      }
-
+      /* CPU idles here. All logic is in Interrupt Service Routines (ISRs) */
+      __WFI(); /* Wait For Interrupt: Saves power until the next SysTick or UART byte */
       /* USER CODE END WHILE */
 
       /* USER CODE BEGIN 3 */

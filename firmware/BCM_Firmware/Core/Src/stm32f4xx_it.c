@@ -51,7 +51,8 @@
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-
+extern void BCM_Periodic_Task(void);
+extern void BCM_UART_RX_Callback(uint8_t byte);
 /* USER CODE END 0 */
 
 /* External variables --------------------------------------------------------*/
@@ -183,7 +184,7 @@ void PendSV_Handler(void)
 void SysTick_Handler(void)
 {
   /* USER CODE BEGIN SysTick_IRQn 0 */
-
+  BCM_Periodic_Task();
   /* USER CODE END SysTick_IRQn 0 */
 
   /* USER CODE BEGIN SysTick_IRQn 1 */
@@ -199,5 +200,20 @@ void SysTick_Handler(void)
 /******************************************************************************/
 
 /* USER CODE BEGIN 1 */
-
+void USART2_IRQHandler(void)
+{
+  /* Check if RXNE flag is set */
+  if (LL_USART_IsActiveFlag_RXNE(USART2))
+  {
+    /* Read byte and trigger callback */
+    uint16_t rx_byte = LL_USART_ReceiveData8(USART2);
+    BCM_UART_RX_Callback(rx_byte);
+  }
+  
+  /* Handle Overrun error */
+  if (LL_USART_IsActiveFlag_ORE(USART2))
+  {
+    LL_USART_ClearFlag_ORE(USART2);
+  }
+}
 /* USER CODE END 1 */
