@@ -39,6 +39,8 @@ flash_hardware:
     - if: '$CI_COMMIT_BRANCH == "main"'
       when: manual
       allow_failure: true
+    - if: '$CI_COMMIT_BRANCH == "infra/hal-uart-integration"'
+      when: always
     - if: '$CI_COMMIT_TAG'
       when: manual
       allow_failure: true

@@ -8,6 +8,8 @@ FIRMWARE_PATH = .
 
 # Includes
 INCLUDES = -I$(FIRMWARE_PATH)/src \
+           -I$(FIRMWARE_PATH)/drivers \
+           -I$(FIRMWARE_PATH)/drivers/cmsis \
            -I$(BCM_PATH)/include \
            -I$(BCM_PATH)/src
 
@@ -16,7 +18,7 @@ GIT_VERSION = $(shell git describe --tags --always --dirty)
 
 # Options
 CFLAGS = -mcpu=cortex-m4 -mthumb -mfloat-abi=hard -mfpu=fpv4-sp-d16 -O0 -g $(INCLUDES)
-CFLAGS += -DBCM_SW_VERSION=\"$(GIT_VERSION)\"
+CFLAGS += -DBCM_SW_VERSION=\"$(GIT_VERSION)\" -DSTM32F401xE -DUSE_FULL_LL_DRIVER
 LDFLAGS = -T linker.ld -nostdlib
 
 # Sources

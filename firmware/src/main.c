@@ -2,6 +2,14 @@
 #include "bcm_types.h"
 #include <stdint.h>
 
+/* STM32 Low-Layer Drivers */
+#include "stm32f4xx_ll_bus.h"
+#include "stm32f4xx_ll_gpio.h"
+#include "stm32f4xx_ll_rcc.h"
+#include "stm32f4xx_ll_system.h"
+#include "stm32f4xx_ll_usart.h"
+#include "stm32f4xx_ll_utils.h"
+
 /* Bare-metal memset replacement */
 void *memset(void *s, int c, uint32_t n) {
   uint8_t *p = (uint8_t *)s;
@@ -11,30 +19,6 @@ void *memset(void *s, int c, uint32_t n) {
 }
 
 /* BCM interface includes all required modules logic */
-
-/* Register addresses for STM32F401RE */
-#define RCC_BASE 0x40023800
-#define RCC_AHB1ENR (*(volatile uint32_t *)(RCC_BASE + 0x30))
-#define RCC_APB1ENR (*(volatile uint32_t *)(RCC_BASE + 0x40))
-
-#define GPIOA_BASE 0x40020000
-#define GPIOA_MODER (*(volatile uint32_t *)(GPIOA_BASE + 0x00))
-#define GPIOA_AFRL (*(volatile uint32_t *)(GPIOA_BASE + 0x20))
-#define GPIOA_ODR (*(volatile uint32_t *)(GPIOA_BASE + 0x14))
-
-#define GPIOC_BASE 0x40020800
-#define GPIOC_MODER (*(volatile uint32_t *)(GPIOC_BASE + 0x00))
-#define GPIOC_IDR (*(volatile uint32_t *)(GPIOC_BASE + 0x10))
-
-#define USART2_BASE 0x40004400
-#define USART2_SR (*(volatile uint32_t *)(USART2_BASE + 0x00))
-#define USART2_DR (*(volatile uint32_t *)(USART2_BASE + 0x04))
-#define USART2_BRR (*(volatile uint32_t *)(USART2_BASE + 0x08))
-#define USART2_CR1 (*(volatile uint32_t *)(USART2_BASE + 0x0C))
-
-#define SCB_VTOR (*(volatile uint32_t *)0xE000ED08)
-
-/* Function Prototypes */
 void main(void);
 void uart_init(void);
 void uart_write(int ch);
@@ -50,36 +34,48 @@ static uint32_t s_tick_count = 0;
 static uint32_t s_loop_cnt = 0;
 
 void uart_init(void) {
-  RCC_AHB1ENR |= 0x01;
-  RCC_APB1ENR |= (1 << 17);
-  GPIOA_MODER &= ~((0x03 << 4) | (0x03 << 6) | (0x03 << 10));
-  GPIOA_MODER |= ((0x02 << 4) | (0x02 << 6) | (0x01 << 10));
-  GPIOA_AFRL &= ~((0x0F << 8) | (0x0F << 12));
-  GPIOA_AFRL |= ((0x07 << 8) | (0x07 << 12));
-  /* Baud Rate: 9600 @ 16MHz */
-  USART2_BRR = (104 << 4) | 3; // 0x683
-  USART2_CR1 = (1 << 13) | (1 << 3) | (1 << 2);
+  LL_AHB1_GRP1_EnableClock(LL_AHB1_GRP1_PERIPH_GPIOA);
+  LL_APB1_GRP1_EnableClock(LL_APB1_GRP1_PERIPH_USART2);
+
+  /* Configure PA2 (TX) and PA3 (RX) */
+  LL_GPIO_SetPinMode(GPIOA, LL_GPIO_PIN_2, LL_GPIO_MODE_ALTERNATE);
+  LL_GPIO_SetAFPin_0_7(GPIOA, LL_GPIO_PIN_2, LL_GPIO_AF_7);
+  LL_GPIO_SetPinSpeed(GPIOA, LL_GPIO_PIN_2, LL_GPIO_SPEED_FREQ_VERY_HIGH);
+  
+  LL_GPIO_SetPinMode(GPIOA, LL_GPIO_PIN_3, LL_GPIO_MODE_ALTERNATE);
+  LL_GPIO_SetAFPin_0_7(GPIOA, LL_GPIO_PIN_3, LL_GPIO_AF_7);
+  LL_GPIO_SetPinSpeed(GPIOA, LL_GPIO_PIN_3, LL_GPIO_SPEED_FREQ_VERY_HIGH);
+
+  /* Configure PA5 (LED) */
+  LL_GPIO_SetPinMode(GPIOA, LL_GPIO_PIN_5, LL_GPIO_MODE_OUTPUT);
+
+  LL_USART_InitTypeDef usart_initstruct = {0};
+  usart_initstruct.BaudRate = 9600;
+  usart_initstruct.DataWidth = LL_USART_DATAWIDTH_8B;
+  usart_initstruct.StopBits = LL_USART_STOPBITS_1;
+  usart_initstruct.Parity = LL_USART_PARITY_NONE;
+  usart_initstruct.TransferDirection = LL_USART_DIRECTION_TX_RX;
+  usart_initstruct.HardwareFlowControl = LL_USART_HWCONTROL_NONE;
+  usart_initstruct.OverSampling = LL_USART_OVERSAMPLING_16;
+  
+  LL_USART_Init(USART2, &usart_initstruct);
+  LL_USART_Enable(USART2);
 }
 
-void command_handler(void);
-
 void uart_write(int c) {
-  while (!(USART2_SR & 0x80)) {
-    // While waiting for the transmitter to be ready, check for incoming
-    // commands!
+  while (!LL_USART_IsActiveFlag_TXE(USART2)) {
     command_handler();
   }
-  USART2_DR = (c & 0xFF);
+  LL_USART_TransmitData8(USART2, (uint8_t)c);
 }
 
 int uart_read(void) {
-  uint32_t sr = USART2_SR;
-  if (sr & 0x08) {   // ORE: Overrun Error
-    (void)USART2_DR; // Dummy read to clear ORE
+  if (LL_USART_IsActiveFlag_ORE(USART2)) {
+    (void)LL_USART_ReceiveData8(USART2); /* Clear ORE by reading DR */
     return -1;
   }
-  if (sr & (1 << 5)) { // RXNE (Read data register not empty)
-    return USART2_DR & 0xFF;
+  if (LL_USART_IsActiveFlag_RXNE(USART2)) {
+    return LL_USART_ReceiveData8(USART2);
   }
   return -1;
 }
@@ -194,28 +190,26 @@ void main(void) {
   uart_init();
 
   /* 2. SysTick Configuration: 10ms interval @ 16MHz HSI */
-  /* 160,000 cycles = 10ms. (16,000,000 / 100) */
-  SYSTICK_LOAD = 160000 - 1;
-  SYSTICK_VAL = 0;
-  SYSTICK_CTRL = 0x05; // Clock source = CPU, Enable = 1
+  /* This uses CMSIS Core functions */
+  SysTick_Config(160000); 
 
-  /* Hardware Monitoring / Button Setup */
-  RCC_AHB1ENR |= (1 << 2);
-  GPIOC_MODER &= ~(0x03 << 26);
+  /* Hardware Monitoring / Button Setup (PC13) */
+  LL_AHB1_GRP1_EnableClock(LL_AHB1_GRP1_PERIPH_GPIOC);
+  LL_GPIO_SetPinMode(GPIOC, LL_GPIO_PIN_13, LL_GPIO_MODE_INPUT);
 
   memset(&bcm_in, 0, sizeof(bcm_in));
   memset(&bcm_out, 0, sizeof(bcm_out));
   bcm_in.brake_temp_celsius = 45.0f;
   bcm_in.vehicle_speed = 60.0f;
 
-  uart_print("\r\n--- BCM SYSTICK ONLINE ---\r\n");
+  uart_print("\r\n--- BCM LL-DRIVER ONLINE ---\r\n");
 
   while (1) {
     /* Fastest Polling for Command Listener */
     command_handler();
 
     /* B. Check for SysTick (Deterministic 100Hz Heartbeat) */
-    if (SYSTICK_CTRL & (1 << 16)) {
+    if (SysTick->CTRL & SysTick_CTRL_COUNTFLAG_Msk) {
       /* This bit is set every 10ms */
       BCM_Step(&bcm_in, &bcm_out);
       s_tick_count++;
@@ -247,7 +241,7 @@ void main(void) {
 
       /* CPU Heartbeat (PA5) toggle every 0.5s */
       if (s_tick_count % 50 == 0) {
-        GPIOA_ODR ^= (1 << 5);
+        LL_GPIO_TogglePin(GPIOA, LL_GPIO_PIN_5);
       }
     }
 
