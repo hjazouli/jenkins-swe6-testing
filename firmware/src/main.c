@@ -55,16 +55,15 @@ void uart_init(void) {
   GPIOA->MODER &= ~GPIO_MODER_MODER5_Msk;
   GPIOA->MODER |= (0x01 << GPIO_MODER_MODER5_Pos);
 
-  LL_USART_InitTypeDef usart_initstruct = {0};
-  usart_initstruct.BaudRate = 9600;
-  usart_initstruct.DataWidth = LL_USART_DATAWIDTH_8B;
-  usart_initstruct.StopBits = LL_USART_STOPBITS_1;
-  usart_initstruct.Parity = LL_USART_PARITY_NONE;
-  usart_initstruct.TransferDirection = LL_USART_DIRECTION_TX_RX;
-  usart_initstruct.HardwareFlowControl = LL_USART_HWCONTROL_NONE;
-  usart_initstruct.OverSampling = LL_USART_OVERSAMPLING_16;
+  /* Configure UART Parameters using inline functions to avoid linker errors 
+     (as .c implementations of Init functions are missing) */
+  LL_USART_SetBaudRate(USART2, 16000000, LL_USART_OVERSAMPLING_16, 9600);
+  LL_USART_SetDataWidth(USART2, LL_USART_DATAWIDTH_8B);
+  LL_USART_SetStopBitsLength(USART2, LL_USART_STOPBITS_1);
+  LL_USART_SetParity(USART2, LL_USART_PARITY_NONE);
+  LL_USART_SetTransferDirection(USART2, LL_USART_DIRECTION_TX_RX);
+  LL_USART_SetOverSampling(USART2, LL_USART_OVERSAMPLING_16);
   
-  LL_USART_Init(USART2, &usart_initstruct);
   LL_USART_Enable(USART2);
 }
 
