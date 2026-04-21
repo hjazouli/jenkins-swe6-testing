@@ -55,9 +55,10 @@ void uart_init(void) {
   GPIOA->MODER &= ~GPIO_MODER_MODER5_Msk;
   GPIOA->MODER |= (0x01 << GPIO_MODER_MODER5_Pos);
 
-  /* Configure UART Parameters using inline functions to avoid linker errors 
-     (as .c implementations of Init functions are missing) */
-  LL_USART_SetBaudRate(USART2, 16000000, LL_USART_OVERSAMPLING_16, 9600);
+  /* Configure UART Parameters using inline functions.
+     Note: Manual BRR setting used to avoid 64-bit math dependency (__aeabi_uldivmod) 
+     in this nostdlib environment. (9600 Baud @ 16MHz = 0x683) */
+  USART2->BRR = 0x683;
   LL_USART_SetDataWidth(USART2, LL_USART_DATAWIDTH_8B);
   LL_USART_SetStopBitsLength(USART2, LL_USART_STOPBITS_1);
   LL_USART_SetParity(USART2, LL_USART_PARITY_NONE);
