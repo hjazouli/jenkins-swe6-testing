@@ -12,7 +12,7 @@
 .global Default_Handler
 
 /* End of Stack address (Defined in Linker Script) */
-.word _sstatus
+.word _sdata
 /* Start of Data (Defined in Linker Script) */
 .word _sdata
 .word _edata
