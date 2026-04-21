@@ -26,6 +26,7 @@ void main(void);
 void uart_init(void);
 void uart_write(int ch);
 void uart_print(char *str);
+void command_handler(void);
 
 void delay(volatile uint32_t count) {
   while (count--) {
