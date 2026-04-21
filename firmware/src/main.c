@@ -207,7 +207,7 @@ void main(void) {
     command_handler();
 
     /* B. BCM Logic (Roughly 100Hz) */
-    if (s_loop_cnt % 10000 == 0) {
+    if (s_loop_cnt % 1000 == 0) {
       BCM_Step(&bcm_in, &bcm_out);
       s_tick_count++;
     }
@@ -218,9 +218,11 @@ void main(void) {
       memset(s_rsp, 0, sizeof(s_rsp));
     }
 
-    /* D. Telemetry Report (roughly 1Hz) */
-    if (s_tick_count % 100 == 0 && (s_loop_cnt % 10000 == 0)) {
-      uart_print("[BCM-V101] P:");
+    /* D. Telemetry Report (roughly 10Hz) */
+    if (s_tick_count % 10 == 0 && (s_loop_cnt % 1000 == 0)) {
+      uart_print("[BCM-V101] T:");
+      print_int((int)s_tick_count);
+      uart_print(" P:");
       print_int((int)bcm_in.pedal_force);
       uart_print(" S:");
       print_int((int)bcm_in.vehicle_speed);
