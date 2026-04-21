@@ -9,8 +9,7 @@
 #include "stm32f4xx_ll_usart.h"
 #include "stm32f4xx_ll_utils.h"
 
-/* Note: stm32f4xx_ll_gpio.h is missing in this project, 
-   falling back to CMSIS device header access for GPIO. */
+#include "stm32f4xx_ll_gpio.h"
 #include "stm32f401xe.h" 
 
 /* Bare-metal memset replacement */
@@ -41,23 +40,22 @@ void uart_init(void) {
   LL_AHB1_GRP1_EnableClock(LL_AHB1_GRP1_PERIPH_GPIOA);
   LL_APB1_GRP1_EnableClock(LL_APB1_GRP1_PERIPH_USART2);
 
-  /* Configure PA2 (TX) and PA3 (RX) as AF7 (USART2) 
-     Falling back to CMSIS access as LL GPIO header is missing */
-  GPIOA->MODER &= ~(GPIO_MODER_MODER2_Msk | GPIO_MODER_MODER3_Msk);
-  GPIOA->MODER |= (0x02 << GPIO_MODER_MODER2_Pos) | (0x02 << GPIO_MODER_MODER3_Pos);
+  /* Configure PA2 (TX) and PA3 (RX) using Official LL Drivers */
+  LL_GPIO_SetPinMode(GPIOA, LL_GPIO_PIN_2, LL_GPIO_MODE_ALTERNATE);
+  LL_GPIO_SetPinMode(GPIOA, LL_GPIO_PIN_3, LL_GPIO_MODE_ALTERNATE);
   
-  GPIOA->AFR[0] &= ~(GPIO_AFRL_AFSEL2_Msk | GPIO_AFRL_AFSEL3_Msk);
-  GPIOA->AFR[0] |= (0x07 << GPIO_AFRL_AFSEL2_Pos) | (0x07 << GPIO_AFRL_AFSEL3_Pos);
+  LL_GPIO_SetAFPin_0_7(GPIOA, LL_GPIO_PIN_2, LL_GPIO_AF_7);
+  LL_GPIO_SetAFPin_0_7(GPIOA, LL_GPIO_PIN_3, LL_GPIO_AF_7);
 
-  GPIOA->OSPEEDR |= (0x03 << GPIO_OSPEEDR_OSPEED2_Pos) | (0x03 << GPIO_OSPEEDR_OSPEED3_Pos);
+  LL_GPIO_SetPinSpeed(GPIOA, LL_GPIO_PIN_2, LL_GPIO_SPEED_FREQ_VERY_HIGH);
+  LL_GPIO_SetPinSpeed(GPIOA, LL_GPIO_PIN_3, LL_GPIO_SPEED_FREQ_VERY_HIGH);
 
   /* Configure PA5 (LED) as Output */
-  GPIOA->MODER &= ~GPIO_MODER_MODER5_Msk;
-  GPIOA->MODER |= (0x01 << GPIO_MODER_MODER5_Pos);
+  LL_GPIO_SetPinMode(GPIOA, LL_GPIO_PIN_5, LL_GPIO_MODE_OUTPUT);
 
-  /* Configure UART Parameters using inline functions.
-     Note: Manual BRR setting used to avoid 64-bit math dependency (__aeabi_uldivmod) 
-     in this nostdlib environment. (9600 Baud @ 16MHz = 0x683) */
+  /* Configure UART Parameters using Official LL-Style Logic.
+     Manual BRR used to avoid 64-bit math dependency in nostdlib.
+     Calculation: (16MHz + 4800) / 9600 = 1667 (0x683) */
   USART2->BRR = 0x683;
   LL_USART_SetDataWidth(USART2, LL_USART_DATAWIDTH_8B);
   LL_USART_SetStopBitsLength(USART2, LL_USART_STOPBITS_1);
@@ -76,12 +74,14 @@ void uart_write(int c) {
 }
 
 int uart_read(void) {
-  if (LL_USART_IsActiveFlag_ORE(USART2)) {
-    (void)LL_USART_ReceiveData8(USART2); /* Clear ORE by reading DR */
-    return -1;
+  /* Clear any pending errors to ensure RX path is open */
+  if (USART2->SR & (USART_SR_ORE | USART_SR_NE | USART_SR_FE)) {
+    (void)USART2->SR;
+    (void)USART2->DR;
   }
+  
   if (LL_USART_IsActiveFlag_RXNE(USART2)) {
-    return LL_USART_ReceiveData8(USART2);
+    return (int)LL_USART_ReceiveData8(USART2);
   }
   return -1;
 }
@@ -145,45 +145,37 @@ BcmOutput_t bcm_out = {0};
 static char s_rsp[64] = {0};
 
 void command_handler(void) {
-  static int s_lock = 0;
-  if (s_lock)
-    return;
-  s_lock = 1;
-
   int rx_byte;
   while ((rx_byte = uart_read()) != -1) {
+    /* DEBUG: Toggle LED on any RX byte using LL Driver */
+    LL_GPIO_TogglePin(GPIOA, LL_GPIO_PIN_5);
+
     if (rx_byte == '\n' || rx_byte == '\r') {
-      cmd_buffer[cmd_idx] = '\0';
       if (cmd_idx >= 1) {
+        cmd_buffer[cmd_idx] = '\0';
         char type = cmd_buffer[0];
         float val = parse_float(&cmd_buffer[1]);
+
         if (type == 'P')
           bcm_in.pedal_force = val;
-        if (type == 'T')
+        else if (type == 'T')
           bcm_in.brake_temp_celsius = val;
-        if (type == 'S')
+        else if (type == 'S')
           bcm_in.vehicle_speed = val;
-        if (type == 'R') {
+        else if (type == 'R') {
           memset(&bcm_in, 0, sizeof(bcm_in));
           memset(&bcm_out, 0, sizeof(bcm_out));
           BCM_Init(&bcm_out);
-          /* Match Python expected string: [SYS] RESET PERFORMED */
-          char *msg = "[SYS] RESET PERFORMED\r\n";
-          for (int i = 0; msg[i] && i < 60; i++)
-            s_rsp[i] = msg[i];
+          uart_print("[SYS] RESET PERFORMED\r\n");
         } else {
-          /* Match Python expected string: [ACK] RECEIVED */
-          char *msg = "[ACK] RECEIVED\r\n";
-          for (int i = 0; msg[i] && i < 60; i++)
-            s_rsp[i] = msg[i];
+          uart_print("[ACK] RECEIVED\r\n");
         }
+        cmd_idx = 0;
       }
-      cmd_idx = 0;
-    } else if (cmd_idx < 31) {
+    } else if (cmd_idx < 30) {
       cmd_buffer[cmd_idx++] = (char)rx_byte;
     }
   }
-  s_lock = 0;
 }
 
 #define SYSTICK_BASE 0xE000E010
@@ -196,66 +188,29 @@ void main(void) {
   uart_init();
 
   /* 2. SysTick Configuration: 10ms interval @ 16MHz HSI */
-  /* This uses CMSIS Core functions */
+  /* This uses CMSIS Core functions. Disable interrupt for polling mode. */
   SysTick_Config(160000); 
+  SysTick->CTRL &= ~SysTick_CTRL_TICKINT_Msk;
 
   /* Hardware Monitoring / Button Setup (PC13) */
   LL_AHB1_GRP1_EnableClock(LL_AHB1_GRP1_PERIPH_GPIOC);
-  GPIOC->MODER &= ~GPIO_MODER_MODER13_Msk; /* Input Mode */
+  LL_GPIO_SetPinMode(GPIOC, LL_GPIO_PIN_13, LL_GPIO_MODE_INPUT); 
 
   memset(&bcm_in, 0, sizeof(bcm_in));
   memset(&bcm_out, 0, sizeof(bcm_out));
   bcm_in.brake_temp_celsius = 45.0f;
   bcm_in.vehicle_speed = 60.0f;
 
-  uart_print("\r\n--- BCM LL/CMSIS ONLINE ---\r\n");
+  uart_print("\r\n--- BCM SYSTICK ONLINE ---\r\n");
 
   while (1) {
-    /* Fastest Polling for Command Listener */
-    command_handler();
-
-    /* B. Check for SysTick (Deterministic 100Hz Heartbeat) */
-    if (SysTick->CTRL & SysTick_CTRL_COUNTFLAG_Msk) {
-      /* This bit is set every 10ms */
-      BCM_Step(&bcm_in, &bcm_out);
-      s_tick_count++;
-
-      /* C. Handle Responses in Sync with Logic */
-      if (s_rsp[0] != '\0') {
-        uart_print(s_rsp);
-        memset(s_rsp, 0, sizeof(s_rsp));
-      }
-
-      /* D. Telemetry Report (Every 100 Logic Ticks = 1Hz) */
-      if (s_tick_count % 100 == 0) {
-        uart_print("[BCM-V101] T:");
-        print_int((int)s_tick_count);
-        uart_print(" P:");
-        print_int((int)bcm_in.pedal_force);
-        uart_print(" S:");
-        print_int((int)bcm_in.vehicle_speed);
-        uart_print(" F:");
-        print_int((int)bcm_out.front_hydraulic_pressure);
-        uart_print(" R:");
-        print_int((int)bcm_out.rear_hydraulic_pressure);
-        uart_print(" Lights:");
-        uart_print((bcm_out.status_flag & 0x01) ? "ACTIVE" : "OFF");
-        uart_print(" FLAG:");
-        print_int((int)bcm_out.status_flag);
-        uart_print("\r\n");
-      }
-
-      /* CPU Heartbeat (PA5) toggle every 0.5s */
-      if (s_tick_count % 50 == 0) {
-        GPIOA->ODR ^= GPIO_ODR_OD5;
-      }
+    /* RAW UART ECHO TEST (Bypass all logic) */
+    int rx = uart_read();
+    if (rx != -1) {
+      /* Echo byte back */
+      uart_write((char)rx);
+      /* Toggle LED for visual confirmation */
+      LL_GPIO_TogglePin(GPIOA, LL_GPIO_PIN_5);
     }
-
-    /* Raw Loop Pulse (Verify UART life if SysTick is stalled) */
-    if (s_loop_cnt % 1000000 == 0) {
-      uart_print(" [RAW] LOOP ALIVE\r\n");
-    }
-
-    s_loop_cnt++;
   }
 }

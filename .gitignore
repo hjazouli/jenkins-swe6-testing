@@ -69,15 +69,13 @@ capture_*.asc
 *.hex
 *.bin
 *.map
-test-results.xml
-test-results.xml
-PRACTICE_REQUIREMENTS.md
-PROFESSIONAL_SRS.md
-test-results.xml
-.vscode/settings.json
-.gitignore
-scripts/launch_jenkins.sh
-test-results.xml
-test-results.xml
-Makefile
-test-results.xml
+# Clangd Cache
+.cache/
+
+# Build artifacts
+build/
+*.o
+*.elf
+*.hex
+*.bin
+*.map

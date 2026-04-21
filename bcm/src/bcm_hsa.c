@@ -17,7 +17,9 @@ void BCM_Hsa_RunStateMachine(const BcmInput_t *in, BcmOutput_t *out) {
   /* 2. Holding logic: Activated when driver releases pedal while armed */
   if (s_hsa_timer > 0) {
     if (in->pedal_force < 5.0f) {
-      out->hydraulic_pressure = BCM_CFG_HSA_HOLD_PRESSURE;
+      /* Specifically lock REAR brakes to prevent rollback @req SWE_REQ_009 */
+      out->rear_hydraulic_pressure = BCM_CFG_HSA_HOLD_PRESSURE;
+      out->status_flag |= BCM_FLAG_HSA_ACTIVE;
       s_hsa_timer--;
     }
 

@@ -32,15 +32,15 @@ BcmStatus_t BCM_Step(const BcmInput_t* in, BcmOutput_t* out) {
   /* 2. Base mapping & ABS */
   BCM_Abs_ApplyModulation(in, out);
 
-  /* 3. Assistance Features */
-  Bcm_Regen_Calculate(in, out);
-  BCM_Hsa_RunStateMachine(in, out);
-
   /* 4. Safety & Distribution */
   BCM_Safety_Check(in, out);
   BCM_Ebd_PerformSplit(in, out);
 
-  /* 5. System Health */
+  /* 5. Assistance Features (End of chain to allow axle overrides) */
+  Bcm_Regen_Calculate(in, out);
+  BCM_Hsa_RunStateMachine(in, out);
+
+  /* 6. System Health */
   BCM_Diag_Update(out);
 
   return BCM_STATUS_OK;
