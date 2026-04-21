@@ -31,6 +31,7 @@ SECTIONS
         *(.data*)
         _edata = .;
     } > SRAM AT > FLASH
+    _sidata = LOADADDR(.data);
 
     .bss :
     {

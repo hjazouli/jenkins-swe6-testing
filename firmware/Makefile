@@ -20,7 +20,8 @@ CFLAGS += -DBCM_SW_VERSION=\"$(GIT_VERSION)\"
 LDFLAGS = -T linker.ld -nostdlib
 
 # Sources
-SRCS = src/main.c \
+SRCS = src/startup_stm32f401re.s \
+       src/main.c \
        $(BCM_PATH)/src/bcm_core.c \
        $(BCM_PATH)/src/bcm_safety.c \
        $(BCM_PATH)/src/bcm_ebd.c \

@@ -9,7 +9,7 @@ void* memset(void* s, int c, uint32_t n) {
   return s;
 }
 
-// BCM interface includes all required module logic
+/* BCM interface includes all required modules logic */
 
 /* Register addresses for STM32F401RE */
 #define RCC_BASE 0x40023800
@@ -35,16 +35,9 @@ void* memset(void* s, int c, uint32_t n) {
 
 /* Function Prototypes */
 void main(void);
-void Reset_Handler(void);
 void uart_init(void);
 void uart_write(int ch);
 void uart_print(char *str);
-
-/* Interrupt Vector Table (Starting at 0x08004000) */
-__attribute__((section(".isr_vector")))
-uint32_t *vector_table[] = {(uint32_t *)0x20018000, (uint32_t *)Reset_Handler};
-
-void Reset_Handler(void) { main(); }
 
 void delay(volatile uint32_t count) {
   while (count--) {
@@ -66,19 +59,20 @@ void uart_init(void) {
   USART2_CR1 = (1 << 13) | (1 << 3) | (1 << 2);
 }
 
-void command_handler(void); 
+void command_handler(void);
 
 void uart_write(int c) {
   while (!(USART2_SR & 0x80)) {
-     // While waiting for the transmitter to be ready, check for incoming commands!
-     command_handler();
+    // While waiting for the transmitter to be ready, check for incoming
+    // commands!
+    command_handler();
   }
   USART2_DR = (c & 0xFF);
 }
 
 int uart_read(void) {
   uint32_t sr = USART2_SR;
-  if (sr & 0x08) { // ORE: Overrun Error
+  if (sr & 0x08) {   // ORE: Overrun Error
     (void)USART2_DR; // Dummy read to clear ORE
     return -1;
   }
@@ -148,7 +142,8 @@ static char s_rsp[64] = {0};
 
 void command_handler(void) {
   static int s_lock = 0;
-  if (s_lock) return;
+  if (s_lock)
+    return;
   s_lock = 1;
 
   int rx_byte;
@@ -158,20 +153,25 @@ void command_handler(void) {
       if (cmd_idx >= 1) {
         char type = cmd_buffer[0];
         float val = parse_float(&cmd_buffer[1]);
-        if (type == 'P') bcm_in.pedal_force = val;
-        if (type == 'T') bcm_in.brake_temp_celsius = val;
-        if (type == 'S') bcm_in.vehicle_speed = val;
+        if (type == 'P')
+          bcm_in.pedal_force = val;
+        if (type == 'T')
+          bcm_in.brake_temp_celsius = val;
+        if (type == 'S')
+          bcm_in.vehicle_speed = val;
         if (type == 'R') {
           memset(&bcm_in, 0, sizeof(bcm_in));
           memset(&bcm_out, 0, sizeof(bcm_out));
           BCM_Init(&bcm_out);
           /* Match Python expected string: [SYS] RESET PERFORMED */
-          char* msg = "[SYS] RESET PERFORMED\r\n";
-          for(int i=0; msg[i] && i<60; i++) s_rsp[i] = msg[i];
+          char *msg = "[SYS] RESET PERFORMED\r\n";
+          for (int i = 0; msg[i] && i < 60; i++)
+            s_rsp[i] = msg[i];
         } else {
           /* Match Python expected string: [ACK] RECEIVED */
-          char* msg = "[ACK] RECEIVED\r\n";
-          for(int i=0; msg[i] && i<60; i++) s_rsp[i] = msg[i];
+          char *msg = "[ACK] RECEIVED\r\n";
+          for (int i = 0; msg[i] && i < 60; i++)
+            s_rsp[i] = msg[i];
         }
       }
       cmd_idx = 0;
@@ -183,13 +183,6 @@ void command_handler(void) {
 }
 
 void main(void) {
-  /* 0. Enable FPU (Coprocessor 10 and 11) */
-  /* This prevents a HardFault when using float variables */
-  (*(volatile uint32_t *)(0xE000ED88)) |= ((3UL << 20) | (3UL << 22));
-
-  // IMPORTANT: Make sure the CPU looks at OUR vector table
-  SCB_VTOR = 0x08004000;
-
   /* 1. Hardware Initialization */
   uart_init();
 
@@ -209,15 +202,14 @@ void main(void) {
   uart_print(BCM_SW_VERSION);
   uart_print("\r\n=================================\r\n");
 
-  while (1)
-  {
+  while (1) {
     /* Listen for commands at the fastest possible rate */
     command_handler();
 
     /* B. BCM Logic (Roughly 100Hz) */
     if (s_loop_cnt % 10000 == 0) {
       BCM_Step(&bcm_in, &bcm_out);
-      s_tick_count++; 
+      s_tick_count++;
     }
 
     /* C. Handle Responses (Avoid interleaving) */
@@ -227,8 +219,7 @@ void main(void) {
     }
 
     /* D. Telemetry Report (roughly 1Hz) */
-    if (s_tick_count % 100 == 0 && (s_loop_cnt % 10000 == 0))
-    {
+    if (s_tick_count % 100 == 0 && (s_loop_cnt % 10000 == 0)) {
       uart_print("[BCM-V101] P:");
       print_int((int)bcm_in.pedal_force);
       uart_print(" S:");
@@ -245,10 +236,10 @@ void main(void) {
     }
 
     s_loop_cnt++;
-    
+
     /* CPU Heartbeat (PA5) at ~2Hz visual speed */
     if (s_loop_cnt % 500000 == 0) {
-        GPIOA_ODR ^= (1 << 5); 
+      GPIOA_ODR ^= (1 << 5);
     }
   }
 }
