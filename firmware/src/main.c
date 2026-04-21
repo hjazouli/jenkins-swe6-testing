@@ -182,66 +182,73 @@ void command_handler(void) {
   s_lock = 0;
 }
 
+#define SYSTICK_BASE 0xE000E010
+#define SYSTICK_CTRL (*(volatile uint32_t *)(SYSTICK_BASE + 0x00))
+#define SYSTICK_LOAD (*(volatile uint32_t *)(SYSTICK_BASE + 0x04))
+#define SYSTICK_VAL  (*(volatile uint32_t *)(SYSTICK_BASE + 0x08))
+
 void main(void) {
   /* 1. Hardware Initialization */
   uart_init();
 
-  /* Configure PC13 (Button) as Input for future functional growth */
+  /* 2. SysTick Configuration: 10ms interval @ 16MHz HSI */
+  /* 160,000 cycles = 10ms. (16,000,000 / 100) */
+  SYSTICK_LOAD = 160000 - 1;
+  SYSTICK_VAL  = 0;
+  SYSTICK_CTRL = 0x05; // Clock source = CPU, Enable = 1
+
+  /* Hardware Monitoring / Button Setup */
   RCC_AHB1ENR |= (1 << 2);
   GPIOC_MODER &= ~(0x03 << 26);
 
-  /* Initialize BCM structures */
   memset(&bcm_in, 0, sizeof(bcm_in));
   memset(&bcm_out, 0, sizeof(bcm_out));
-
-  bcm_in.brake_temp_celsius = 45.0f; // Nominal
+  bcm_in.brake_temp_celsius = 45.0f;
   bcm_in.vehicle_speed = 60.0f;
 
-  uart_print("\r\n--- BCM BOOTED ---\r\n");
-  uart_print("  VERSION: ");
-  uart_print(BCM_SW_VERSION);
-  uart_print("\r\n=================================\r\n");
+  uart_print("\r\n--- BCM SYSTICK ONLINE ---\r\n");
 
   while (1) {
-    /* Listen for commands at the fastest possible rate */
+    /* Fastest Polling for Command Listener */
     command_handler();
 
-    /* B. BCM Logic (Roughly 100Hz) */
-    if (s_loop_cnt % 1000 == 0) {
+    /* B. Check for SysTick (Deterministic 100Hz Heartbeat) */
+    if (SYSTICK_CTRL & (1 << 16)) { 
+      /* This bit is set every 10ms */
       BCM_Step(&bcm_in, &bcm_out);
       s_tick_count++;
+
+      /* C. Handle Responses in Sync with Logic */
+      if (s_rsp[0] != '\0') {
+        uart_print(s_rsp);
+        memset(s_rsp, 0, sizeof(s_rsp));
+      }
+
+      /* D. Telemetry Report (Every 100 Logic Ticks = 1Hz) */
+      if (s_tick_count % 100 == 0) {
+        uart_print("[BCM-V101] T:");
+        print_int((int)s_tick_count);
+        uart_print(" P:");
+        print_int((int)bcm_in.pedal_force);
+        uart_print(" S:");
+        print_int((int)bcm_in.vehicle_speed);
+        uart_print(" F:");
+        print_int((int)bcm_out.front_hydraulic_pressure);
+        uart_print(" R:");
+        print_int((int)bcm_out.rear_hydraulic_pressure);
+        uart_print(" Lights:");
+        uart_print((bcm_out.status_flag & 0x01) ? "ACTIVE" : "OFF");
+        uart_print(" FLAG:");
+        print_int((int)bcm_out.status_flag);
+        uart_print("\r\n");
+      }
+
+      /* CPU Heartbeat (PA5) toggle every 0.5s */
+      if (s_tick_count % 50 == 0) {
+        GPIOA_ODR ^= (1 << 5);
+      }
     }
 
-    /* C. Handle Responses (Avoid interleaving) */
-    if (s_rsp[0] != '\0') {
-      uart_print(s_rsp);
-      memset(s_rsp, 0, sizeof(s_rsp));
-    }
-
-    /* D. Telemetry Report (roughly 10Hz) */
-    if (s_tick_count % 10 == 0 && (s_loop_cnt % 1000 == 0)) {
-      uart_print("[BCM-V101] T:");
-      print_int((int)s_tick_count);
-      uart_print(" P:");
-      print_int((int)bcm_in.pedal_force);
-      uart_print(" S:");
-      print_int((int)bcm_in.vehicle_speed);
-      uart_print(" F:");
-      print_int((int)bcm_out.front_hydraulic_pressure);
-      uart_print(" R:");
-      print_int((int)bcm_out.rear_hydraulic_pressure);
-      uart_print(" Lights:");
-      uart_print((bcm_out.status_flag & 0x01) ? "ACTIVE" : "OFF");
-      uart_print(" FLAG:");
-      print_int((int)bcm_out.status_flag);
-      uart_print("\r\n");
-    }
-
-    s_loop_cnt++;
-
-    /* CPU Heartbeat (PA5) at ~2Hz visual speed */
-    if (s_loop_cnt % 500000 == 0) {
-      GPIOA_ODR ^= (1 << 5);
-    }
+    s_loop_cnt++; // Still counting raw loops for performance metrics
   }
 }
