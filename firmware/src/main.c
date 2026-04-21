@@ -1,11 +1,12 @@
-#include <stdint.h>
 #include "bcm_iface.h"
 #include "bcm_types.h"
+#include <stdint.h>
 
 /* Bare-metal memset replacement */
-void* memset(void* s, int c, uint32_t n) {
-  uint8_t* p = (uint8_t*)s;
-  while (n--) *p++ = (uint8_t)c;
+void *memset(void *s, int c, uint32_t n) {
+  uint8_t *p = (uint8_t *)s;
+  while (n--)
+    *p++ = (uint8_t)c;
   return s;
 }
 
@@ -186,7 +187,7 @@ void command_handler(void) {
 #define SYSTICK_BASE 0xE000E010
 #define SYSTICK_CTRL (*(volatile uint32_t *)(SYSTICK_BASE + 0x00))
 #define SYSTICK_LOAD (*(volatile uint32_t *)(SYSTICK_BASE + 0x04))
-#define SYSTICK_VAL  (*(volatile uint32_t *)(SYSTICK_BASE + 0x08))
+#define SYSTICK_VAL (*(volatile uint32_t *)(SYSTICK_BASE + 0x08))
 
 void main(void) {
   /* 1. Hardware Initialization */
@@ -195,7 +196,7 @@ void main(void) {
   /* 2. SysTick Configuration: 10ms interval @ 16MHz HSI */
   /* 160,000 cycles = 10ms. (16,000,000 / 100) */
   SYSTICK_LOAD = 160000 - 1;
-  SYSTICK_VAL  = 0;
+  SYSTICK_VAL = 0;
   SYSTICK_CTRL = 0x05; // Clock source = CPU, Enable = 1
 
   /* Hardware Monitoring / Button Setup */
@@ -214,7 +215,7 @@ void main(void) {
     command_handler();
 
     /* B. Check for SysTick (Deterministic 100Hz Heartbeat) */
-    if (SYSTICK_CTRL & (1 << 16)) { 
+    if (SYSTICK_CTRL & (1 << 16)) {
       /* This bit is set every 10ms */
       BCM_Step(&bcm_in, &bcm_out);
       s_tick_count++;
@@ -252,9 +253,9 @@ void main(void) {
 
     /* Raw Loop Pulse (Verify UART life if SysTick is stalled) */
     if (s_loop_cnt % 1000000 == 0) {
-       uart_print(" [RAW] LOOP ALIVE\r\n");
+      uart_print(" [RAW] LOOP ALIVE\r\n");
     }
 
-    s_loop_cnt++; 
+    s_loop_cnt++;
   }
 }
