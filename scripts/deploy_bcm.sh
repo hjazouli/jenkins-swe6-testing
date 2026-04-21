@@ -1,20 +1,21 @@
 #!/bin/bash
+set -e
 
-# 1. Build and Flash the Application (The BCM logic) at 0x08004000
-echo "--- Compiling Application ---"
-cd firmware
-make clean && make all
-echo "--- Flashing Application to 0x08004000 ---"
-st-flash write blinky.bin 0x08004000
+# New Hardened Infrastructure Deployment Script
+# ---------------------------------------------
+# Path to the CubeMX-generated project
+FIRMWARE_DIR="firmware/BCM_Firmware"
+BINARY_PATH="$FIRMWARE_DIR/build/BCM_Firmware.bin"
 
-# 2. Build and Flash the Bootloader at 0x08000000
-echo "--- Compiling Bootloader ---"
-cd bootloader
-make clean && make all
-echo "--- Flashing Bootloader to 0x08000000 ---"
-st-flash write bootloader.bin 0x08000000
+echo "🔨 --- COMPILING HARDENED BCM FIRMWARE ---"
+make -C $FIRMWARE_DIR clean all
 
-echo "--- DEPLOYMENT COMPLETE ---"
-echo "Instructions:"
-echo "1. Normal Reboot: Board should Blink (Application running)."
-echo "2. Hold BLUE BUTTON + Reset: LED stays SOLID (Bootloader Mode)."
+echo "⚡ --- FLASHING FIRMWARE TO 0x08000000 ---"
+# We now flash to the base address (0x08000000) as the bootloader is retired
+st-flash write $BINARY_PATH 0x08000000
+
+echo "🔄 --- RESETTING BOARD ---"
+st-flash reset
+
+echo "✅ --- DEPLOYMENT SUCCESSFUL ---"
+echo "Note: Firmware running at 115,200 Baud / 84 MHz."

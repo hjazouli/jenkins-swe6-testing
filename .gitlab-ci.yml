@@ -14,13 +14,11 @@ build_firmware:
   script:
     - echo "🔍 IDENTIFYING SOFTWARE VERSION..."
     - git describe --tags --always --dirty
-    - echo "🔨 Compiling BCM Application and Bootloader..."
-    - make -C firmware clean all
-    - make -C firmware/bootloader clean all
+    - echo "🔨 Compiling Hardened BCM Application..."
+    - make -C firmware/BCM_Firmware clean all
   artifacts:
     paths:
-      - firmware/blinky.bin
-      - firmware/bootloader/bootloader.bin
+      - firmware/BCM_Firmware/build/BCM_Firmware.bin
     expire_in: 1 week
 
 flash_hardware:
