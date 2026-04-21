@@ -4,11 +4,14 @@
 
 /* STM32 Low-Layer Drivers */
 #include "stm32f4xx_ll_bus.h"
-#include "stm32f4xx_ll_gpio.h"
 #include "stm32f4xx_ll_rcc.h"
 #include "stm32f4xx_ll_system.h"
 #include "stm32f4xx_ll_usart.h"
 #include "stm32f4xx_ll_utils.h"
+
+/* Note: stm32f4xx_ll_gpio.h is missing in this project, 
+   falling back to CMSIS device header access for GPIO. */
+#include "stm32f401xe.h" 
 
 /* Bare-metal memset replacement */
 void *memset(void *s, int c, uint32_t n) {
@@ -37,17 +40,19 @@ void uart_init(void) {
   LL_AHB1_GRP1_EnableClock(LL_AHB1_GRP1_PERIPH_GPIOA);
   LL_APB1_GRP1_EnableClock(LL_APB1_GRP1_PERIPH_USART2);
 
-  /* Configure PA2 (TX) and PA3 (RX) */
-  LL_GPIO_SetPinMode(GPIOA, LL_GPIO_PIN_2, LL_GPIO_MODE_ALTERNATE);
-  LL_GPIO_SetAFPin_0_7(GPIOA, LL_GPIO_PIN_2, LL_GPIO_AF_7);
-  LL_GPIO_SetPinSpeed(GPIOA, LL_GPIO_PIN_2, LL_GPIO_SPEED_FREQ_VERY_HIGH);
+  /* Configure PA2 (TX) and PA3 (RX) as AF7 (USART2) 
+     Falling back to CMSIS access as LL GPIO header is missing */
+  GPIOA->MODER &= ~(GPIO_MODER_MODER2_Msk | GPIO_MODER_MODER3_Msk);
+  GPIOA->MODER |= (0x02 << GPIO_MODER_MODER2_Pos) | (0x02 << GPIO_MODER_MODER3_Pos);
   
-  LL_GPIO_SetPinMode(GPIOA, LL_GPIO_PIN_3, LL_GPIO_MODE_ALTERNATE);
-  LL_GPIO_SetAFPin_0_7(GPIOA, LL_GPIO_PIN_3, LL_GPIO_AF_7);
-  LL_GPIO_SetPinSpeed(GPIOA, LL_GPIO_PIN_3, LL_GPIO_SPEED_FREQ_VERY_HIGH);
+  GPIOA->AFR[0] &= ~(GPIO_AFRL_AFSEL2_Msk | GPIO_AFRL_AFSEL3_Msk);
+  GPIOA->AFR[0] |= (0x07 << GPIO_AFRL_AFSEL2_Pos) | (0x07 << GPIO_AFRL_AFSEL3_Pos);
 
-  /* Configure PA5 (LED) */
-  LL_GPIO_SetPinMode(GPIOA, LL_GPIO_PIN_5, LL_GPIO_MODE_OUTPUT);
+  GPIOA->OSPEEDR |= (0x03 << GPIO_OSPEEDR_OSPEED2_Pos) | (0x03 << GPIO_OSPEEDR_OSPEED3_Pos);
+
+  /* Configure PA5 (LED) as Output */
+  GPIOA->MODER &= ~GPIO_MODER_MODER5_Msk;
+  GPIOA->MODER |= (0x01 << GPIO_MODER_MODER5_Pos);
 
   LL_USART_InitTypeDef usart_initstruct = {0};
   usart_initstruct.BaudRate = 9600;
@@ -195,14 +200,14 @@ void main(void) {
 
   /* Hardware Monitoring / Button Setup (PC13) */
   LL_AHB1_GRP1_EnableClock(LL_AHB1_GRP1_PERIPH_GPIOC);
-  LL_GPIO_SetPinMode(GPIOC, LL_GPIO_PIN_13, LL_GPIO_MODE_INPUT);
+  GPIOC->MODER &= ~GPIO_MODER_MODER13_Msk; /* Input Mode */
 
   memset(&bcm_in, 0, sizeof(bcm_in));
   memset(&bcm_out, 0, sizeof(bcm_out));
   bcm_in.brake_temp_celsius = 45.0f;
   bcm_in.vehicle_speed = 60.0f;
 
-  uart_print("\r\n--- BCM LL-DRIVER ONLINE ---\r\n");
+  uart_print("\r\n--- BCM LL/CMSIS ONLINE ---\r\n");
 
   while (1) {
     /* Fastest Polling for Command Listener */
@@ -241,7 +246,7 @@ void main(void) {
 
       /* CPU Heartbeat (PA5) toggle every 0.5s */
       if (s_tick_count % 50 == 0) {
-        LL_GPIO_TogglePin(GPIOA, LL_GPIO_PIN_5);
+        GPIOA->ODR ^= GPIO_ODR_OD5;
       }
     }
 
