@@ -2,7 +2,7 @@ import serial
 import time
 
 SERIAL_PORT = "/dev/tty.usbmodem103"
-BAUD_RATE = 9600
+BAUD_RATE = 115200
 
 class Color:
     BLUE = "\033[94m"
