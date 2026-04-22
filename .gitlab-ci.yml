@@ -34,12 +34,19 @@ hil_test_validation:
   tags:
     - mac-m4
   script:
-    - echo "🧪 Preparing HIL Environment..."
+    - echo "🧪 Preparing Professional HIL Environment..."
     - if [ ! -d ".venv" ]; then python3 -m venv .venv; fi
     - source .venv/bin/activate
-    - pip install pytest pyserial pytest-metadata pytest-html
+    - pip install pytest pyserial allure-pytest pytest-metadata
     - echo "🚀 Executing Industry-Standard HIL Validation..."
-    - pytest tests/functional -s -v --target=hardware
+    - pytest tests/functional -s -v --alluredir=allure-results --target=hardware
+    - echo "📊 Generating Allure Clinical Report..."
+    - /opt/homebrew/bin/allure generate allure-results --clean -o allure-report
+  artifacts:
+    when: always
+    paths:
+      - allure-report
+    expire_in: 1 week
   rules:
     - if: '$CI_COMMIT_BRANCH == "develop" || $CI_COMMIT_BRANCH == "infra/hal-uart-integration"'
       when: always
