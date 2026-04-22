@@ -34,8 +34,11 @@ hil_test_validation:
   tags:
     - mac-m4
   script:
-    - echo "🧪 Executing Industry-Standard HIL Validation..."
+    - echo "🧪 Preparing HIL Environment..."
+    - if [ ! -d ".venv" ]; then python3 -m venv .venv; fi
     - source .venv/bin/activate
+    - pip install pytest pyserial pytest-metadata pytest-html
+    - echo "🚀 Executing Industry-Standard HIL Validation..."
     - pytest tests/functional -s -v --target=hardware
   rules:
     - if: '$CI_COMMIT_BRANCH == "develop" || $CI_COMMIT_BRANCH == "infra/hal-uart-integration"'
