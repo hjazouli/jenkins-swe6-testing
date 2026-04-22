@@ -3,7 +3,7 @@ import time
 import sys
 
 SERIAL_PORT = "/dev/tty.usbmodem103"
-BAUD_RATE = 115200
+BAUD_RATE = 9600
 
 def run_certification():
     print("\n" + "="*50)

@@ -204,13 +204,46 @@ void main(void) {
   uart_print("\r\n--- BCM SYSTICK ONLINE ---\r\n");
 
   while (1) {
-    /* RAW UART ECHO TEST (Bypass all logic) */
-    int rx = uart_read();
-    if (rx != -1) {
-      /* Echo byte back */
-      uart_write((char)rx);
-      /* Toggle LED for visual confirmation */
-      LL_GPIO_TogglePin(GPIOA, LL_GPIO_PIN_5);
+    /* Fastest Polling for Command Listener */
+    command_handler();
+
+    /* Check for SysTick (Deterministic 100Hz Heartbeat) */
+    if (SysTick->CTRL & SysTick_CTRL_COUNTFLAG_Msk) {
+      /* This bit is set every 10ms */
+      BCM_Step(&bcm_in, &bcm_out);
+      s_tick_count++;
+
+      /* Send Telemetry at 1Hz (Every 100 ticks) */
+      if (s_tick_count % 100 == 0) {
+        int speed = (int)bcm_in.vehicle_speed;
+        int pedal = (int)bcm_in.pedal_force;
+        int f_press = (int)bcm_out.front_hydraulic_pressure;
+        int r_press = (int)bcm_out.rear_hydraulic_pressure;
+        volatile int is_act = bcm_out.brake_light;
+        char *light_status = is_act ? "ACTIVE" : "OFF";
+        
+        uart_print("[BCM-V101] T:");
+        print_int(s_tick_count);
+        uart_print(" P:");
+        print_int(pedal);
+        uart_print(" S:");
+        print_int(speed);
+        uart_print(" F:");
+        print_int(f_press);
+        uart_print(" R:");
+        print_int(r_press);
+        uart_print(" Lights:");
+        uart_print(light_status);
+        uart_print(" FLAG:");
+        print_int(bcm_out.flags);
+        uart_print("\r\n");
+      }
+
+      /* CPU Heartbeat (PA5) toggle every 0.5s */
+      if (s_tick_count % 50 == 0) {
+        GPIOA->ODR ^= (1 << 5); // Toggle PA5
+      }
     }
   }
 }
+
