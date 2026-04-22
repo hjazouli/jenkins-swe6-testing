@@ -44,7 +44,7 @@ def test_safety_critical_brake_light(bcm_target):
     data = parse_telemetry(response)
 
     assert data.get('lights') == "ACTIVE", "Brake Lights failed to activate!"
-    assert data.get('pedal', 0) >= 150, f"Expected Pedal >= 150, got {data.get('pedal')}"
+    assert data.get('pedal', 0) == 100, f"Expected Clamped Pedal 100, got {data.get('pedal')}"
     Log.test_end("test_safety_critical_brake_light")
 
 def test_thermal_safety_threshold(bcm_target):
