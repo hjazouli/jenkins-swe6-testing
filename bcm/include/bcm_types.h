@@ -28,9 +28,11 @@ typedef struct {
   float motor_torque;
 } BcmInput_t;
 
-#define BCM_FLAG_BRAKE_LIGHT (1 << 0)
-#define BCM_FLAG_ABS_ACTIVE   (1 << 1)
-#define BCM_FLAG_HSA_ACTIVE   (1 << 2)
+#define BCM_FLAG_BRAKE_LIGHT   (1 << 0)  // 0x01
+#define BCM_FLAG_THERMAL_FAULT (1 << 1)  // 0x02
+#define BCM_FLAG_ABS_ACTIVE    (1 << 2)  // 0x04
+#define BCM_FLAG_HSA_ACTIVE    (1 << 3)  // 0x08
+#define BCM_FLAG_PLAUS_FAULT   (1 << 4)  // 0x10
 
 /**
  * @brief BCM Output data to the Hydraulic/CAN layer.

@@ -1,6 +1,7 @@
 import pytest
 import time
 import re
+from tests.bridge.hardware_bridge import Log
 
 def parse_telemetry(line):
     """
@@ -31,6 +32,7 @@ def parse_telemetry(line):
 
 def test_safety_critical_brake_light(bcm_target):
     """REQ_001: The Brake Light MUST turn on when the pedal is pressed."""
+    Log.test_start("test_safety_critical_brake_light", "Verify brake light activation > 5 Bar")
     bcm_target.set_pedal(0.0)
     time.sleep(0.1)
 
@@ -43,9 +45,11 @@ def test_safety_critical_brake_light(bcm_target):
 
     assert data.get('lights') == "ACTIVE", "Brake Lights failed to activate!"
     assert data.get('pedal', 0) >= 150, f"Expected Pedal >= 150, got {data.get('pedal')}"
+    Log.test_end("test_safety_critical_brake_light")
 
 def test_thermal_safety_threshold(bcm_target):
     """REQ_007: Overheating MUST trip a fault flag at 200C."""
+    Log.test_start("test_thermal_safety_threshold", "Verify thermal fault bit at 200C")
     bcm_target.set_temp(45.0)
     time.sleep(0.2)
 
@@ -59,9 +63,11 @@ def test_thermal_safety_threshold(bcm_target):
 
     # Bit 1 (0x02) is the thermal fault bit in our BCM logic
     assert (flag_val & 0x02) != 0, f"Expected Thermal Fault bit (0x02) in FLAG: {hex(flag_val)}"
+    Log.test_end("test_thermal_safety_threshold")
 
 def test_speed_plausibility(bcm_target):
     """REQ_011: Fault if speed is high while braking."""
+    Log.test_start("test_speed_plausibility", "Verify speed/brake conflict detection")
     print("\n[ACTION] Testing Speed/Brake Plausibility...")
     bcm_target.set_speed(120)
     bcm_target.set_pedal(100)
@@ -71,10 +77,13 @@ def test_speed_plausibility(bcm_target):
     data = parse_telemetry(response)
     flag_val = data.get('flag', 0)
 
-    assert flag_val > 0, "Bcm Safety Monitor failed to detect speed/brake conflict!"
+    # Bit 4 (0x10) is the plausibility bit
+    assert (flag_val & 0x10) != 0, f"Bcm Safety Monitor failed to detect conflict. FLAG: {hex(flag_val)}"
+    Log.test_end("test_speed_plausibility")
 
 def test_ebd_split(bcm_target):
     """REQ_013: Rear pressure MUST be reduced during high deceleration."""
+    Log.test_start("test_ebd_split", "Verify EBD pressure split during deceleration")
     print("\n[ACTION] Testing EBD Pressure Split (120 -> 80 km/h)...")
     bcm_target.set_speed(120)
     time.sleep(0.2)
@@ -91,3 +100,4 @@ def test_ebd_split(bcm_target):
     assert f_pres > 0, "No hydraulic pressure detected!"
     assert r_pres < f_pres, f"EBD Split failure: Rear ({r_pres}) >= Front ({f_pres})"
     print(f"[REPLY] Verified EBD Split. F: {f_pres}, R: {r_pres}")
+    Log.test_end("test_ebd_split")

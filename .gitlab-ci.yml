@@ -1,44 +1,42 @@
-# GitLab CI/CD Pipeline for Automated BCM Flashing
 stages:
   - build
   - deploy
+  - verify
 
 variables:
   # Ensure the runner can find your homebrew tools
-  PATH: "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+  PATH: "/Applications/ArmGNUToolchain/15.2.rel1/arm-none-eabi/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 
 build_firmware:
   stage: build
   tags:
-    - mac-m4  # Make sure this matches the tag you used in registration!
+    - mac-m4
   script:
-    - echo "🔍 IDENTIFYING SOFTWARE VERSION..."
-    - git describe --tags --always --dirty
-    - echo "🔨 Compiling Hardened BCM Application..."
+    - echo "🔨 Compiling BCM Firmware..."
     - make -C firmware/BCM_Firmware clean all
   artifacts:
     paths:
       - firmware/BCM_Firmware/build/BCM_Firmware.bin
-    expire_in: 1 week
 
 flash_hardware:
   stage: deploy
   tags:
     - mac-m4
   script:
-    - echo "⚡ Physically Flashing the Nucleo-F401RE..."
+    - echo "⚡ Flashing Nucleo Board..."
     - chmod +x ./scripts/deploy_bcm.sh
     - ./scripts/deploy_bcm.sh
   environment:
     name: hardware-bench
+
+hil_test_validation:
+  stage: verify
+  tags:
+    - mac-m4
+  script:
+    - echo "🧪 Executing Industry-Standard HIL Validation..."
+    - source .venv/bin/activate
+    - pytest tests/functional -s -v --target=hardware
   rules:
-    - if: '$CI_COMMIT_BRANCH == "develop"'
+    - if: '$CI_COMMIT_BRANCH == "develop" || $CI_COMMIT_BRANCH == "infra/hal-uart-integration"'
       when: always
-    - if: '$CI_COMMIT_BRANCH == "main"'
-      when: manual
-      allow_failure: true
-    - if: '$CI_COMMIT_BRANCH == "infra/hal-uart-integration"'
-      when: always
-    - if: '$CI_COMMIT_TAG'
-      when: manual
-      allow_failure: true

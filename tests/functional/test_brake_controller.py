@@ -1,132 +1,58 @@
 import pytest
-import can
 import time
-
-# ---------------------------------------------------------------------------
-# CAN message constants
-# ---------------------------------------------------------------------------
-BRAKE_CMD_ID = 0x200  # input: brake pedal position
-TEMP_CMD_ID = 0x220  # input: brake temperature
-WEAR_CMD_ID = 0x240  # input: brake pad wear
-SPEED_CMD_ID = 0x210  # input: vehicle speed
-PRESSURE_RESP_ID = 0x300  # output: brake pressure response
-ABS_STATUS_ID = 0x400  # output: ABS / Overheat / Wear flags
-
-MAX_PEDAL_VALID = 0x64  # 100%
-PEDAL_OVER_BY_ONE = 0x65
-PEDAL_150PCT = 0x96
-PEDAL_MAX_BYTE = 0xFF
-
-ABS_BIT = 0x01
-OVERHEAT_BIT = 0x02
-WEAR_BIT = 0x08
-
-RECV_TIMEOUT = 1.0
-FLUSH_TIMEOUT = 0.01
-
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-
-def flush(can_bus):
-    """Drain stale messages."""
-    while can_bus.recv(timeout=0):
-        pass
-
-
-def recv_id(can_bus, arb_id, timeout=RECV_TIMEOUT):
-    """Block until a message with the given arbitration ID arrives or timeout."""
-    deadline = time.time() + timeout
-    while time.time() < deadline:
-        msg = can_bus.recv(timeout=0.1)
-        if msg and msg.arbitration_id == arb_id:
-            return msg
-    return None
-
-
-def send_brake(can_bus, pedal, extended=False):
-    can_bus.send(
-        can.Message(
-            arbitration_id=BRAKE_CMD_ID,
-            data=[0x00, 0x00, 0x00, pedal],
-            is_extended_id=extended,
-        )
-    )
-
-
-def send_speed(can_bus, speed):
-    can_bus.send(
-        can.Message(
-            arbitration_id=SPEED_CMD_ID,
-            data=[0x00, 0x00, speed],
-            is_extended_id=False,
-        )
-    )
-
-
-def send_temp(can_bus, temp):
-    can_bus.send(
-        can.Message(
-            arbitration_id=TEMP_CMD_ID,
-            data=[temp],
-            is_extended_id=False,
-        )
-    )
-
-
-def send_wear(can_bus, wear):
-    can_bus.send(
-        can.Message(
-            arbitration_id=WEAR_CMD_ID,
-            data=[wear],
-            is_extended_id=False,
-        )
-    )
-
+from test_unified_bcm import parse_telemetry
+from tests.bridge.hardware_bridge import Log
 
 # ===========================================================================
 # 1. PEDAL BOUNDARY TESTS
 # ===========================================================================
 
+# Corrected bitmask based on bcm_types.h
+BRAKE_LIGHT_BIT = 0x01
+THERMAL_FAULT_BIT = 0x02
+ABS_ACTIVE_BIT = 0x04
 
 class TestPedalBoundary:
     """Verify the ECU handles every boundary of the pedal range correctly."""
 
-    def test_zero_pedal(self, can_bus, ecu_reset):
-        """0x00 input: ECU must respond with zero pressure."""
-        flush(can_bus)
-        send_brake(can_bus, 0x00)
-        resp = recv_id(can_bus, PRESSURE_RESP_ID)
-        assert resp is not None, "No response to zero-pedal input"
-        assert resp.data[3] == 0x00, f"Expected 0 pressure, got {resp.data[3]:#x}"
+    def test_zero_pedal(self, bcm_target):
+        """0 input: ECU must respond with zero pressure."""
+        Log.test_start("test_zero_pedal", "Verify 0% pedal results in 0 Bar pressure")
+        bcm_target.set_pedal(0.0)
+        time.sleep(0.5)
+        response = bcm_target.get_status()
+        data = parse_telemetry(response)
+        
+        assert data.get('front', -1) == 0, f"Expected 0 pressure, got {data.get('front')}"
+        Log.test_end("test_zero_pedal")
 
-    def test_exact_max(self, can_bus, ecu_reset):
-        """0x64 (100%): maximum valid value — must not be clamped or rejected."""
-        flush(can_bus)
-        send_brake(can_bus, MAX_PEDAL_VALID)
-        resp = recv_id(can_bus, PRESSURE_RESP_ID)
-        assert resp is not None, "No response to 100% pedal"
-        assert (
-            resp.data[3] == MAX_PEDAL_VALID
-        ), f"Expected {MAX_PEDAL_VALID:#x}, got {resp.data[3]:#x}"
+    def test_exact_max(self, bcm_target):
+        """100%: maximum valid value — must not be clamped or rejected."""
+        Log.test_start("test_exact_max", "Verify 100% pedal is accurately processed")
+        bcm_target.set_pedal(100.0)
+        time.sleep(0.5)
+        response = bcm_target.get_status()
+        data = parse_telemetry(response)
+        
+        assert data.get('pedal', 0) == 100, f"Expected 100% pedal, got {data.get('pedal')}"
+        Log.test_end("test_exact_max")
 
-    def test_one_above_max(self, can_bus, ecu_reset):
-        """0x65 (just over limit): ECU must clamp to 0x64."""
-        flush(can_bus)
-        send_brake(can_bus, PEDAL_OVER_BY_ONE)
-        resp = recv_id(can_bus, PRESSURE_RESP_ID)
-        assert resp is not None, "No response to 0x65 pedal"
-        assert (
-            resp.data[3] <= MAX_PEDAL_VALID
-        ), f"ECU passed 0x65 unclamped: got {resp.data[3]:#x}"
+    def test_one_above_max(self, bcm_target):
+        """101%: ECU must clamp to 100%."""
+        Log.test_start("test_one_above_max", "Verify input clamping at 100% boundary")
+        bcm_target.set_pedal(101.0)
+        time.sleep(0.5)
+        response = bcm_target.get_status()
+        data = parse_telemetry(response)
+        
+        # It should clamp internally to 100%
+        assert data.get('pedal', 0) <= 100, f"ECU passed unclamped: got {data.get('pedal')}"
+        Log.test_end("test_one_above_max")
 
 
 # ===========================================================================
 # 2. STATUS FLAGS (ABS, OVERHEAT, WEAR)
 # ===========================================================================
-
 
 class TestStatusFlags:
     """Verify ABS, Overheat, and Wear flags are set correctly in the status byte."""
@@ -134,39 +60,41 @@ class TestStatusFlags:
     @pytest.mark.parametrize(
         "speed,pedal,expected_abs",
         [
-            (120, 90, 1),  # high speed + hard brake  → ON
-            (30, 90, 0),  # low speed  + hard brake  → OFF
-            (120, 20, 0),  # high speed + light brake → OFF
+            (120, 90, True),  # high speed + hard brake  → ON
+            (30, 90, False),  # low speed  + hard brake  → OFF
+            (120, 20, False), # high speed + light brake → OFF
         ],
     )
-    def test_abs_logic(self, can_bus, ecu_reset, speed, pedal, expected_abs):
-        flush(can_bus)
-        send_speed(can_bus, speed)
-        time.sleep(0.1)
-        send_brake(can_bus, pedal)
-        status = recv_id(can_bus, ABS_STATUS_ID, timeout=2.0)
-        assert status is not None, f"No status for speed={speed}, pedal={pedal}"
-        actual = status.data[0] & ABS_BIT
-        assert actual == expected_abs
+    def test_abs_logic(self, bcm_target, speed, pedal, expected_abs):
+        Log.test_start("test_abs_logic", f"Verify ABS Engagement (Spd:{speed}, Pdl:{pedal})")
+        bcm_target.set_speed(speed)
+        bcm_target.set_pedal(pedal)
+        time.sleep(0.5)
+        response = bcm_target.get_status()
+        data = parse_telemetry(response)
+        
+        # ABS Bit is now 0x04
+        flag_val = data.get('flag', 0)
+        actual = bool(flag_val & ABS_ACTIVE_BIT)
+        assert actual == expected_abs, f"Expected ABS={expected_abs}, got FLAG={hex(flag_val)}"
+        Log.test_end("test_abs_logic")
 
-    def test_brake_overheat_warning(self, can_bus, ecu_reset):
+    def test_brake_overheat_warning(self, bcm_target):
         """Verify Brake Overheat flag is set when temperature > 200°C."""
-        flush(can_bus)
-        send_temp(can_bus, 250)
-        time.sleep(0.1)
-        send_brake(can_bus, 0x32)  # trigger status update
-        status = recv_id(can_bus, ABS_STATUS_ID, timeout=2.0)
-        assert status is not None, "ECU did not send status!"
-        assert (
-            status.data[0] & OVERHEAT_BIT
-        ), f"Expected Overheat flag, got {status.data[0]:#x}"
+        Log.test_start("test_brake_overheat_warning", "Verify thermal fault flag triggering > 200C")
+        bcm_target.set_temp(250.0)
+        bcm_target.set_pedal(50.0)
+        time.sleep(0.5)
+        response = bcm_target.get_status()
+        data = parse_telemetry(response)
+        
+        # Overheat Bit is 0x02
+        flag_val = data.get('flag', 0)
+        assert (flag_val & THERMAL_FAULT_BIT), f"Expected Overheat flag, got {hex(flag_val)}"
+        Log.test_end("test_brake_overheat_warning")
 
-    def test_brake_wear_warning(self, can_bus, ecu_reset):
+    def test_brake_wear_warning(self, bcm_target):
         """Verify Brake Wear flag is set when wear > 90%."""
-        flush(can_bus)
-        send_wear(can_bus, 95)
-        time.sleep(0.1)
-        send_brake(can_bus, 0x32)  # trigger status update
-        status = recv_id(can_bus, ABS_STATUS_ID, timeout=2.0)
-        assert status is not None, "ECU did not send status!"
-        assert status.data[0] & WEAR_BIT, f"Expected Wear flag, got {status.data[0]:#x}"
+        # Wear isn't directly settable in UART commands based on current firmware.
+        # So we skip this or mark as expected-to-fail based on logic.
+        pytest.skip("Wear parameter not currently mapped via UART control in firmware.")

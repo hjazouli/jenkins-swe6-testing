@@ -121,9 +121,20 @@ void BCM_UART_RX_Callback(uint8_t rx_byte) {
       char type = cmd_buffer[0];
       float val = parse_float(&cmd_buffer[1]);
 
-      if (type == 'P') bcm_in.pedal_force = val;
-      else if (type == 'T') bcm_in.brake_temp_celsius = val;
-      else if (type == 'S') bcm_in.vehicle_speed = val;
+      if (type == 'P') {
+        if (val > 100.0f) val = 100.0f;
+        if (val < 0.0f) val = 0.0f;
+        bcm_in.pedal_force = val;
+        uart_print("[ACK] RECEIVED\r\n");
+      }
+      else if (type == 'T') {
+        bcm_in.brake_temp_celsius = val;
+        uart_print("[ACK] RECEIVED\r\n");
+      }
+      else if (type == 'S') {
+        bcm_in.vehicle_speed = val;
+        uart_print("[ACK] RECEIVED\r\n");
+      }
       else if (type == 'R') {
         memset(&bcm_in, 0, sizeof(bcm_in));
         memset(&bcm_out, 0, sizeof(bcm_out));
