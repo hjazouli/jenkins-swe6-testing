@@ -219,7 +219,7 @@ void main(void) {
         int pedal = (int)bcm_in.pedal_force;
         int f_press = (int)bcm_out.front_hydraulic_pressure;
         int r_press = (int)bcm_out.rear_hydraulic_pressure;
-        volatile int is_act = bcm_out.brake_light;
+        int is_act = (bcm_out.status_flag & BCM_FLAG_BRAKE_LIGHT) ? 1 : 0;
         char *light_status = is_act ? "ACTIVE" : "OFF";
         
         uart_print("[BCM-V101] T:");
@@ -235,7 +235,7 @@ void main(void) {
         uart_print(" Lights:");
         uart_print(light_status);
         uart_print(" FLAG:");
-        print_int(bcm_out.flags);
+        print_int(bcm_out.status_flag);
         uart_print("\r\n");
       }
 
