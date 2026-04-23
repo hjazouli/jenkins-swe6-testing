@@ -1,5 +1,5 @@
 pipeline {
-    agent any 
+    agent { label 'mac-harness' }
     
     environment {
         // Clinical path for Mac Toolchain integration
