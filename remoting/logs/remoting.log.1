@@ -1,0 +1,72 @@
+Apr 23, 2026 12:55:07 PM hudson.remoting.Launcher createEngine
+INFO: Setting up agent: mac-harness
+Apr 23, 2026 12:55:07 PM hudson.remoting.Engine startEngine
+INFO: Using Remoting version: 3352.v17a_fb_4b_2773f
+Apr 23, 2026 12:55:07 PM org.jenkinsci.remoting.engine.WorkDirManager initializeWorkDir
+INFO: Using /Users/hichamjazouli/Gravity/SWE6-Test/remoting as a remoting work directory
+Apr 23, 2026 12:55:07 PM hudson.remoting.Launcher$CuiListener status
+INFO: http://localhost:8081/login is not ready
+java.net.SocketException: Connection reset
+	at java.base/sun.nio.ch.NioSocketImpl.implRead(NioSocketImpl.java:318)
+	at java.base/sun.nio.ch.NioSocketImpl.read(NioSocketImpl.java:346)
+	at java.base/sun.nio.ch.NioSocketImpl$1.read(NioSocketImpl.java:796)
+	at java.base/java.net.Socket$SocketInputStream.read(Socket.java:1099)
+	at java.base/java.io.BufferedInputStream.fill(BufferedInputStream.java:291)
+	at java.base/java.io.BufferedInputStream.read1(BufferedInputStream.java:347)
+	at java.base/java.io.BufferedInputStream.implRead(BufferedInputStream.java:420)
+	at java.base/java.io.BufferedInputStream.read(BufferedInputStream.java:399)
+	at java.base/sun.net.www.http.HttpClient.parseHTTPHeader(HttpClient.java:827)
+	at java.base/sun.net.www.http.HttpClient.parseHTTP(HttpClient.java:759)
+	at java.base/sun.net.www.http.HttpClient.parseHTTP(HttpClient.java:786)
+	at java.base/sun.net.www.protocol.http.HttpURLConnection.getInputStream0(HttpURLConnection.java:1720)
+	at java.base/sun.net.www.protocol.http.HttpURLConnection.getInputStream(HttpURLConnection.java:1629)
+	at java.base/java.net.HttpURLConnection.getResponseCode(HttpURLConnection.java:531)
+	at hudson.remoting.Engine.pingSuccessful(Engine.java:891)
+	at hudson.remoting.Engine.lambda$runWebSocket$2(Engine.java:821)
+	at hudson.remoting.Engine.succeedsWithRetries(Engine.java:868)
+	at hudson.remoting.Engine.runWebSocket(Engine.java:821)
+	at hudson.remoting.Engine.run(Engine.java:560)
+
+Apr 23, 2026 12:55:07 PM hudson.remoting.Launcher$CuiListener status
+INFO: Waiting 1 second before retry
+Apr 23, 2026 12:55:08 PM hudson.remoting.Launcher$CuiListener status
+INFO: http://localhost:8081/login is not ready
+java.net.SocketException: Connection reset
+	at java.base/sun.nio.ch.NioSocketImpl.implRead(NioSocketImpl.java:318)
+	at java.base/sun.nio.ch.NioSocketImpl.read(NioSocketImpl.java:346)
+	at java.base/sun.nio.ch.NioSocketImpl$1.read(NioSocketImpl.java:796)
+	at java.base/java.net.Socket$SocketInputStream.read(Socket.java:1099)
+	at java.base/java.io.BufferedInputStream.fill(BufferedInputStream.java:291)
+	at java.base/java.io.BufferedInputStream.read1(BufferedInputStream.java:347)
+	at java.base/java.io.BufferedInputStream.implRead(BufferedInputStream.java:420)
+	at java.base/java.io.BufferedInputStream.read(BufferedInputStream.java:399)
+	at java.base/sun.net.www.http.HttpClient.parseHTTPHeader(HttpClient.java:827)
+	at java.base/sun.net.www.http.HttpClient.parseHTTP(HttpClient.java:759)
+	at java.base/sun.net.www.http.HttpClient.parseHTTP(HttpClient.java:786)
+	at java.base/sun.net.www.protocol.http.HttpURLConnection.getInputStream0(HttpURLConnection.java:1720)
+	at java.base/sun.net.www.protocol.http.HttpURLConnection.getInputStream(HttpURLConnection.java:1629)
+	at java.base/java.net.HttpURLConnection.getResponseCode(HttpURLConnection.java:531)
+	at hudson.remoting.Engine.pingSuccessful(Engine.java:891)
+	at hudson.remoting.Engine.lambda$runWebSocket$2(Engine.java:821)
+	at hudson.remoting.Engine.succeedsWithRetries(Engine.java:868)
+	at hudson.remoting.Engine.runWebSocket(Engine.java:821)
+	at hudson.remoting.Engine.run(Engine.java:560)
+
+Apr 23, 2026 12:55:08 PM hudson.remoting.Launcher$CuiListener status
+INFO: Waiting 3 seconds before retry
+Apr 23, 2026 12:55:12 PM hudson.remoting.Launcher$CuiListener status
+INFO: http://localhost:8081/login is not ready: 503
+Apr 23, 2026 12:55:12 PM hudson.remoting.Launcher$CuiListener status
+INFO: Waiting 7 seconds before retry
+Apr 23, 2026 12:55:19 PM hudson.remoting.Launcher$CuiListener status
+INFO: WebSocket connection open
+Apr 23, 2026 12:55:19 PM hudson.remoting.Launcher$CuiListener status
+INFO: Connected
+Apr 23, 2026 1:15:49 PM hudson.remoting.Launcher$CuiListener status
+INFO: Read side closed
+Apr 23, 2026 1:15:49 PM hudson.remoting.Launcher$CuiListener status
+INFO: Terminated
+Apr 23, 2026 1:15:49 PM hudson.remoting.Launcher$CuiListener status
+INFO: Performing onReconnect operation.
+Apr 23, 2026 1:15:49 PM jenkins.slaves.restarter.JnlpSlaveRestarterInstaller$EngineListenerAdapterImpl onReconnect
+INFO: Restarting agent via jenkins.slaves.restarter.UnixSlaveRestarter@5e6493ad

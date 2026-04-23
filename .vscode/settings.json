@@ -1,0 +1,18 @@
+{
+    "cmake.sourceDirectory": "/Users/hichamjazouli/Gravity/SWE6-Test/bcm",
+    "python.defaultInterpreterPath": "/Users/hichamjazouli/Gravity/SWE6-Test/.venv/bin/python3",
+    "python.testing.pytestEnabled": true,
+    "python.testing.unittestEnabled": false,
+    "python.testing.pytestArgs": [
+        "."
+    ],
+    "python.testing.pytestPath": "/Users/hichamjazouli/Gravity/SWE6-Test/.venv/bin/pytest",
+    
+    // Terminal Aesthetics & Visibility
+    "terminal.integrated.fontFamily": "'0xProto Nerd Font Mono', Menlo, Monaco, monospace",
+    "terminal.integrated.fontSize": 12,
+    "terminal.integrated.lineHeight": 1.1,
+    "terminal.integrated.cursorStyle": "line",
+    "terminal.integrated.cursorBlinking": true,
+    "terminal.integrated.gpuAcceleration": "on"
+}

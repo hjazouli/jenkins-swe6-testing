@@ -14,6 +14,18 @@
             ],
             "console": "integratedTerminal",
             "justMyCode": true
+        },
+        {
+            "name": "Debug BCM Firmware (ST-Link)",
+            "type": "cortex-debug",
+            "request": "launch",
+            "servertype": "stutil",
+            "cwd": "${workspaceFolder}",
+            "executable": "firmware/BCM_Firmware/build/BCM_Firmware.elf",
+            "device": "STM32F401RE",
+            "interface": "swd",
+            "runToEntryPoint": "main",
+            "preLaunchTask": "Build Firmware"
         }
     ]
 }

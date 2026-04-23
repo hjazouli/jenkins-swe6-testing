@@ -11,12 +11,12 @@ static uint8_t s_thermal_recovery_cnt = 0;
 
 /* Hysteresis constants (should ideally be in bcm_cfg.h) */
 #define HYDRAULIC_PRESSURE_HIGH_THRESHOLD 5.0f
-#define HYDRAULIC_PRESSURE_LOW_THRESHOLD  2.0f
+#define HYDRAULIC_PRESSURE_LOW_THRESHOLD 2.0f
 
 /**
  * @brief Combined safety monitoring for lights, thermal and plausibility.
  */
-void BCM_Safety_Check(const BcmInput_t* in, BcmOutput_t* out) {
+void BCM_Safety_Check(const BcmInput_t *in, BcmOutput_t *out) {
   /* 0. Brake Light Control with Hysteresis */
   if (out->hydraulic_pressure > HYDRAULIC_PRESSURE_HIGH_THRESHOLD) {
     out->status_flag |= BCM_FLAG_BRAKE_LIGHT;
@@ -42,14 +42,22 @@ void BCM_Safety_Check(const BcmInput_t* in, BcmOutput_t* out) {
 
   /* 3. Plausibility Check (SWE_REQ_011) */
   if (in->vehicle_speed >= s_plaus_last_speed && in->pedal_force > 50.0f) {
-    if (++s_plaus_counter >= 5) s_plaus_latch = BCM_FLAG_PLAUS_FAULT;
+    if (++s_plaus_counter >= 5)
+      s_plaus_latch = BCM_FLAG_PLAUS_FAULT;
   } else {
     s_plaus_counter = 0;
     s_plaus_latch = 0x00;
   }
   s_plaus_last_speed = in->vehicle_speed;
 
-  /* 4. ABS State Integration */
+  /* 4. Brake Wear Monitoring (SWE_REQ_009) */
+  if (in->brake_wear_pct > BCM_CFG_BRAKE_WEAR_LIMIT) {
+    out->status_flag |= BCM_FLAG_BRAKE_WEAR;
+  } else {
+    out->status_flag &= ~BCM_FLAG_BRAKE_WEAR;
+  }
+
+  /* 5. ABS State Integration */
   uint8_t abs_status = (out->abs_active) ? BCM_FLAG_ABS_ACTIVE : 0x00;
 
   /* Apply results to status flag */

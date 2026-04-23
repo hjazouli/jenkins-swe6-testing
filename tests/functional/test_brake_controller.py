@@ -8,6 +8,7 @@ from tests.bridge.hardware_bridge import Log
 BRAKE_LIGHT_BIT = 0x01
 THERMAL_FAULT_BIT = 0x02
 ABS_ACTIVE_BIT = 0x04
+BRAKE_WEAR_BIT = 0x20
 
 @allure.feature("Brake Control Module")
 class TestPedalBoundary:
@@ -107,6 +108,16 @@ class TestStatusFlags:
 
     def test_brake_wear_warning(self, bcm_target):
         """Verify Brake Wear flag is set when wear > 90%."""
-        # Wear isn't directly settable in UART commands based on current firmware.
-        # So we skip this or mark as expected-to-fail based on logic.
-        pytest.skip("Wear parameter not currently mapped via UART control in firmware.")
+        Log.test_start("test_brake_wear_warning", "Verify brake wear flag triggering > 90%")
+        
+        with allure.step("Set Brake Wear to 95%"):
+            bcm_target.set_wear(95.0)
+            time.sleep(0.5)
+            
+        with allure.step("Verify Wear Bit (0x20) is Set"):
+            response = bcm_target.get_status()
+            data = parse_telemetry(response)
+            flag_val = data.get('flag', 0)
+            assert (flag_val & BRAKE_WEAR_BIT), f"Expected Wear flag, got {hex(flag_val)}"
+            
+        Log.test_end("test_brake_wear_warning")

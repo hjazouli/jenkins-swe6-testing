@@ -26,6 +26,8 @@ typedef struct {
   float brake_temp_celsius;
   /** @brief Regenerative torque available from motor [Nm] */
   float motor_torque;
+  /** @brief Brake pad wear level [0.0 - 100.0 %] */
+  float brake_wear_pct;
 } BcmInput_t;
 
 #define BCM_FLAG_BRAKE_LIGHT   (1 << 0)  // 0x01
@@ -33,6 +35,7 @@ typedef struct {
 #define BCM_FLAG_ABS_ACTIVE    (1 << 2)  // 0x04
 #define BCM_FLAG_HSA_ACTIVE    (1 << 3)  // 0x08
 #define BCM_FLAG_PLAUS_FAULT   (1 << 4)  // 0x10
+#define BCM_FLAG_BRAKE_WEAR    (1 << 5)  // 0x20
 
 /**
  * @brief BCM Output data to the Hydraulic/CAN layer.

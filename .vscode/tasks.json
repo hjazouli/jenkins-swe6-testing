@@ -4,7 +4,7 @@
         {
             "label": "Build Firmware",
             "type": "shell",
-            "command": "make -C firmware all",
+            "command": "make -C firmware/BCM_Firmware all",
             "group": {
                 "kind": "build",
                 "isDefault": true

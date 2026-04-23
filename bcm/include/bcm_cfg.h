@@ -38,4 +38,7 @@
 /** @brief EBD Rear pressure ratio relative to front [Ratio] */
 #define BCM_CFG_EBD_REAR_PRESSURE_RATIO 0.7f
 
+/** @brief Brake wear percentage at which the warning is triggered [%] */
+#define BCM_CFG_BRAKE_WEAR_LIMIT 90.0f
+
 #endif /* BCM_CFG_H */

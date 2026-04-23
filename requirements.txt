@@ -7,3 +7,4 @@ pytest-cov==4.1.0
 flawfinder==2.0.19
 allure-pytest==2.13.5
 gcovr==7.2
+pyserial==3.5
