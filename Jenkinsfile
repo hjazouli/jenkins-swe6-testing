@@ -1,10 +1,6 @@
 pipeline {
     agent any 
     
-    triggers {
-        pollSCM('* * * * *') // Poll for changes every minute
-    }
-
     environment {
         // Clinical path for Mac Toolchain integration
         PATH = "/Applications/ArmGNUToolchain/15.2.rel1/arm-none-eabi/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:${env.PATH}"
