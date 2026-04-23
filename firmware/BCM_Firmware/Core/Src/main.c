@@ -180,8 +180,8 @@ void BCM_Periodic_Task(void) {
   if (s_tick_count % 10 == 0) {
     BCM_Step(&bcm_in, &bcm_out);
 
-    /* Telemetry Report @ 1Hz */
-    if (s_tick_count % 1000 == 0) {
+    /* Telemetry Report @ 10Hz (every 100ms) */
+    if (s_tick_count % 100 == 0) {
       uart_print("[BCM-V101] T:");
       print_int((int)s_tick_count);
       uart_print(" P:");

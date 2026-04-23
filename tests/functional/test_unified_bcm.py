@@ -20,8 +20,7 @@ def test_safety_critical_brake_light(bcm_target):
         time.sleep(0.5)
 
     with allure.step("Verify Clamped Pressure & Light Status"):
-        response = bcm_target.get_status()
-        data = parse_telemetry(response)
+        data = bcm_target.get_status()
 
         assert data.get("lights") == "ACTIVE", "Brake Lights failed to activate!"
         assert (
@@ -46,8 +45,7 @@ def test_thermal_safety_threshold(bcm_target):
         time.sleep(0.5)
 
     with allure.step("Check Status Bit 0x02"):
-        response = bcm_target.get_status()
-        data = parse_telemetry(response)
+        data = bcm_target.get_status()
         flag_val = data.get("flag", 0)
         assert (flag_val & 0x02) != 0, f"Expected Thermal Fault bit (0x02)"
 
@@ -66,8 +64,7 @@ def test_speed_plausibility(bcm_target):
         time.sleep(0.5)
 
     with allure.step("Verify Plausibility Fault Bit (0x10)"):
-        response = bcm_target.get_status()
-        data = parse_telemetry(response)
+        data = bcm_target.get_status()
         flag_val = data.get("flag", 0)
         assert (flag_val & 0x10) != 0, f"Conflict not detected. FLAG: {hex(flag_val)}"
 
@@ -90,8 +87,7 @@ def test_ebd_split(bcm_target):
         time.sleep(0.5)
 
     with allure.step("Confirm Rear/Front pressure ratio"):
-        response = bcm_target.get_status()
-        data = parse_telemetry(response)
+        data = bcm_target.get_status()
         f_pres = data.get("front", 0)
         r_pres = data.get("rear", 0)
         assert (
