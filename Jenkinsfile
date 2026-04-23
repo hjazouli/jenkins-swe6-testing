@@ -12,7 +12,7 @@ pipeline {
                 echo '📦 Preparing HIL Environment...'
                 sh '''
                     if [ ! -d ".venv" ]; then python3 -m venv .venv; fi
-                    source .venv/bin/activate
+                    . .venv/bin/activate
                     pip install --upgrade pip
                     pip install pytest pyserial allure-pytest pytest-metadata
                 '''
@@ -38,7 +38,7 @@ pipeline {
             steps {
                 echo '🧪 Executing Industry-Standard HIL Validation...'
                 sh '''
-                    source .venv/bin/activate
+                    . .venv/bin/activate
                     pytest tests/functional -s -v --alluredir=allure-results --target=hardware
                 '''
             }
