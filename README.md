@@ -1,6 +1,6 @@
 ## SWE6-Test: ECU Firmware CI/CD & Verification Framework
 
-## Mission Overview
+### Mission Overview
 
 The **SWE6-Test** repository is a high-fidelity simulation of an automotive software development environment. It demonstrates how to achieve **ASPICE SWE.6 (Software Unit Test)** and **SWE.5 (Software Integration Test)** compliance using a modern CI/CD stack.
 
@@ -8,7 +8,7 @@ This project simulates the development of a **Brake Control ECU** (Infineon TC39
 
 ---
 
-## System Architecture
+### System Architecture
 
 ### 1. Firmware Layers (C Source)
 
