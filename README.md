@@ -1,4 +1,4 @@
-# SWE6-Test: ECU Firmware CI/CD & Verification Framework
+## SWE6-Test: ECU Firmware CI/CD & Verification Framework
 
 ## Mission Overview
 
