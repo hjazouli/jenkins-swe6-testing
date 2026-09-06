@@ -25,15 +25,45 @@
 #include <stdio.h>
 #include <string.h>
 
-
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
+typedef enum {
+  FRAME_WAIT_START,
+  FRAME_WAIT_TYPE,
+  FRAME_WAIT_LEN,
+  FRAME_WAIT_PAYLOAD,
+  FRAME_WAIT_CRC1,
+  FRAME_WAIT_CRC2
+} FrameState_t;
 
+/* Binary telemetry payload sent with every RESP_TELEMETRY frame. Packed so
+ * its wire layout matches Python's struct.unpack("<IfffffBi", ...) exactly. */
+typedef struct __attribute__((packed)) {
+  uint32_t tick;
+  float pedal;
+  float speed;
+  float wear;
+  float front;
+  float rear;
+  uint8_t status_flag;
+  int32_t chip_temp_c;
+} TelemetryPayload_t;
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+#define FRAME_START_BYTE 0x7E
+#define FRAME_MAX_PAYLOAD 32
 
+#define CMD_SET_PEDAL 0x01
+#define CMD_SET_SPEED 0x02
+#define CMD_SET_TEMP  0x03
+#define CMD_RESET     0x04
+#define CMD_SET_WEAR  0x05
+
+#define RESP_ACK       0x10
+#define RESP_NACK      0x11
+#define RESP_TELEMETRY 0x20
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -44,23 +74,35 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-static uint32_t s_tick_count = 0;
+volatile uint32_t s_tick_count = 0;
+volatile uint8_t g_telem_pending = 0;
 BcmInput_t bcm_in = {0};
 BcmOutput_t bcm_out = {0};
-char cmd_buffer[32];
-int cmd_idx = 0;
+
+/* Binary frame protocol state (see BCM_UART_RX_Callback) */
+static FrameState_t s_frame_state = FRAME_WAIT_START;
+static uint8_t s_frame_type = 0;
+static uint8_t s_frame_len = 0;
+static uint8_t s_frame_payload[FRAME_MAX_PAYLOAD];
+static uint8_t s_frame_payload_idx = 0;
+static uint16_t s_frame_crc_recv = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_USART2_UART_Init(void);
+static void MX_ADC1_Init(void);
 /* USER CODE BEGIN PFP */
 void uart_write(int ch);
 void uart_print(char *str);
-void print_int(int val);
 void BCM_Periodic_Task(void);
 void BCM_UART_RX_Callback(uint8_t byte);
+int32_t BCM_ReadChipTemperature_C(void);
+uint16_t crc16_ccitt(const uint8_t *data, uint16_t len);
+void BCM_SendFrame(uint8_t type, const uint8_t *payload, uint8_t len);
+void BCM_ProcessFrame(uint8_t type, const uint8_t *payload, uint8_t len,
+                      uint16_t recv_crc);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -91,84 +133,174 @@ void uart_print(char *str) {
   }
 }
 
-void print_int(int val) {
-  char buf[16];
-  int i = 0;
-  if (val == 0) {
-    uart_write('0');
+/**
+ * @brief CRC-16/CCITT-FALSE (poly 0x1021, init 0xFFFF, no reflect). Computed
+ *        identically on the Python side so a corrupted frame is dropped
+ *        instead of silently mis-parsed.
+ */
+uint16_t crc16_ccitt(const uint8_t *data, uint16_t len) {
+  uint16_t crc = 0xFFFF;
+  for (uint16_t i = 0; i < len; i++) {
+    crc ^= (uint16_t)((uint16_t)data[i] << 8);
+    for (uint8_t b = 0; b < 8; b++) {
+      if (crc & 0x8000) {
+        crc = (uint16_t)((crc << 1) ^ 0x1021);
+      } else {
+        crc = (uint16_t)(crc << 1);
+      }
+    }
+  }
+  return crc;
+}
+
+/**
+ * @brief Transmits one binary frame: START, TYPE, LEN, PAYLOAD, CRC16.
+ */
+void BCM_SendFrame(uint8_t type, const uint8_t *payload, uint8_t len) {
+  uint8_t buf[2 + FRAME_MAX_PAYLOAD];
+  buf[0] = type;
+  buf[1] = len;
+  if (len > 0) {
+    memcpy(&buf[2], payload, len);
+  }
+  uint16_t crc = crc16_ccitt(buf, (uint16_t)(2 + len));
+
+  uart_write(FRAME_START_BYTE);
+  uart_write(type);
+  uart_write(len);
+  for (uint8_t i = 0; i < len; i++) {
+    uart_write(payload[i]);
+  }
+  uart_write((uint8_t)(crc & 0xFF));
+  uart_write((uint8_t)((crc >> 8) & 0xFF));
+}
+
+/**
+ * @brief Validates a fully-received frame's CRC and dispatches it.
+ */
+void BCM_ProcessFrame(uint8_t type, const uint8_t *payload, uint8_t len,
+                      uint16_t recv_crc) {
+  uint8_t buf[2 + FRAME_MAX_PAYLOAD];
+  buf[0] = type;
+  buf[1] = len;
+  if (len > 0) {
+    memcpy(&buf[2], payload, len);
+  }
+  if (crc16_ccitt(buf, (uint16_t)(2 + len)) != recv_crc) {
+    BCM_SendFrame(RESP_NACK, (void *)0, 0);
     return;
   }
-  if (val < 0) {
-    uart_write('-');
-    val = -val;
+
+  float val = 0.0f;
+  if (len == sizeof(float)) {
+    memcpy(&val, payload, sizeof(float));
   }
-  while (val > 0 && i < 15) {
-    buf[i++] = (val % 10) + '0';
-    val /= 10;
-  }
-  while (i > 0) {
-    uart_write(buf[--i]);
+
+  switch (type) {
+    case CMD_SET_PEDAL:
+      if (val > 100.0f)
+        val = 100.0f;
+      if (val < 0.0f)
+        val = 0.0f;
+      bcm_in.pedal_force = val;
+      BCM_SendFrame(RESP_ACK, (void *)0, 0);
+      break;
+    case CMD_SET_SPEED:
+      bcm_in.vehicle_speed = val;
+      BCM_SendFrame(RESP_ACK, (void *)0, 0);
+      break;
+    case CMD_SET_TEMP:
+      bcm_in.brake_temp_celsius = val;
+      BCM_SendFrame(RESP_ACK, (void *)0, 0);
+      break;
+    case CMD_SET_WEAR:
+      bcm_in.brake_wear_pct = val;
+      BCM_SendFrame(RESP_ACK, (void *)0, 0);
+      break;
+    case CMD_RESET:
+      memset(&bcm_in, 0, sizeof(bcm_in));
+      memset(&bcm_out, 0, sizeof(bcm_out));
+      BCM_Init(&bcm_out);
+      BCM_SendFrame(RESP_ACK, (void *)0, 0);
+      break;
+    default:
+      BCM_SendFrame(RESP_NACK, (void *)0, 0);
+      break;
   }
 }
 
-float parse_float(char *s) {
-  float res = 0.0, fact = 1.0;
-  int point_seen = 0;
-  if (*s == '-') {
-    s++;
-    fact = -1.0;
+/**
+ * @brief Reads the MCU's internal temperature sensor (ADC1 internal channel)
+ *        and converts it to degrees Celsius using factory two-point
+ *        calibration (TS_CAL1 @ 30C, TS_CAL2 @ 110C, per RM0368).
+ * @retval Chip die temperature in degrees Celsius.
+ */
+int32_t BCM_ReadChipTemperature_C(void) {
+  LL_ADC_REG_StartConversionSWStart(ADC1);
+  while (!LL_ADC_IsActiveFlag_EOCS(ADC1)) {
   }
-  for (; *s; s++) {
-    if (*s == '.') {
-      point_seen = 1;
-      continue;
-    }
-    int d = *s - '0';
-    if (d >= 0 && d <= 9) {
-      if (point_seen)
-        fact /= 10.0f;
-      res = res * 10.0f + (float)d;
-    }
-  }
-  return res * fact;
+  uint16_t raw = LL_ADC_REG_ReadConversionData12(ADC1);
+  LL_ADC_ClearFlag_EOCS(ADC1);
+
+  int32_t ts_cal1 = (int32_t)(*TEMPSENSOR_CAL1_ADDR);
+  int32_t ts_cal2 = (int32_t)(*TEMPSENSOR_CAL2_ADDR);
+
+  int32_t temp_c = ((int32_t)raw - ts_cal1) *
+                       (TEMPSENSOR_CAL2_TEMP - TEMPSENSOR_CAL1_TEMP) /
+                       (ts_cal2 - ts_cal1) +
+                   TEMPSENSOR_CAL1_TEMP;
+  return temp_c;
 }
 
 void BCM_UART_RX_Callback(uint8_t rx_byte) {
-  /* This is called by USART2_IRQHandler */
-  if (rx_byte == '\n' || rx_byte == '\r') {
-    if (cmd_idx >= 1) {
-      cmd_buffer[cmd_idx] = '\0';
-      char type = cmd_buffer[0];
-      float val = parse_float(&cmd_buffer[1]);
-
-      if (type == 'P') {
-        if (val > 100.0f)
-          val = 100.0f;
-        if (val < 0.0f)
-          val = 0.0f;
-        bcm_in.pedal_force = val;
-        uart_print("[ACK] RECEIVED\r\n");
-      } else if (type == 'T') {
-        bcm_in.brake_temp_celsius = val;
-        uart_print("[ACK] RECEIVED\r\n");
-      } else if (type == 'S') {
-        bcm_in.vehicle_speed = val;
-        uart_print("[ACK] RECEIVED\r\n");
-      } else if (type == 'R') {
-        memset(&bcm_in, 0, sizeof(bcm_in));
-        memset(&bcm_out, 0, sizeof(bcm_out));
-        BCM_Init(&bcm_out);
-        uart_print("[SYS] RESET PERFORMED\r\n");
-      } else if (type == 'W') {
-        bcm_in.brake_wear_pct = val;
-        uart_print("[ACK] RECEIVED\r\n");
-      } else {
-        uart_print("[ACK] RECEIVED\r\n");
+  /* This is called by USART2_IRQHandler. Byte-level state machine for the
+   * binary frame protocol: START, TYPE, LEN, PAYLOAD[LEN], CRC16 (lo, hi). */
+  switch (s_frame_state) {
+    case FRAME_WAIT_START:
+      if (rx_byte == FRAME_START_BYTE) {
+        s_frame_state = FRAME_WAIT_TYPE;
       }
-      cmd_idx = 0;
-    }
-  } else if (cmd_idx < 30) {
-    cmd_buffer[cmd_idx++] = (char)rx_byte;
+      break;
+
+    case FRAME_WAIT_TYPE:
+      s_frame_type = rx_byte;
+      s_frame_state = FRAME_WAIT_LEN;
+      break;
+
+    case FRAME_WAIT_LEN:
+      s_frame_len = rx_byte;
+      s_frame_payload_idx = 0;
+      if (s_frame_len > sizeof(s_frame_payload)) {
+        /* Malformed length: resync on the next start byte instead of
+         * overrunning the payload buffer. */
+        s_frame_state = FRAME_WAIT_START;
+      } else {
+        s_frame_state = (s_frame_len > 0) ? FRAME_WAIT_PAYLOAD : FRAME_WAIT_CRC1;
+      }
+      break;
+
+    case FRAME_WAIT_PAYLOAD:
+      s_frame_payload[s_frame_payload_idx++] = rx_byte;
+      if (s_frame_payload_idx >= s_frame_len) {
+        s_frame_state = FRAME_WAIT_CRC1;
+      }
+      break;
+
+    case FRAME_WAIT_CRC1:
+      s_frame_crc_recv = rx_byte;
+      s_frame_state = FRAME_WAIT_CRC2;
+      break;
+
+    case FRAME_WAIT_CRC2:
+      s_frame_crc_recv |= (uint16_t)((uint16_t)rx_byte << 8);
+      BCM_ProcessFrame(s_frame_type, s_frame_payload, s_frame_len,
+                       s_frame_crc_recv);
+      s_frame_state = FRAME_WAIT_START;
+      break;
+
+    default:
+      s_frame_state = FRAME_WAIT_START;
+      break;
   }
 }
 
@@ -180,25 +312,9 @@ void BCM_Periodic_Task(void) {
   if (s_tick_count % 10 == 0) {
     BCM_Step(&bcm_in, &bcm_out);
 
-    /* Telemetry Report @ 10Hz (every 100ms) */
+    /* Trigger Telemetry Report @ 10Hz (every 100ms) */
     if (s_tick_count % 100 == 0) {
-      uart_print("[BCM-V101] T:");
-      print_int((int)s_tick_count);
-      uart_print(" P:");
-      print_int((int)bcm_in.pedal_force);
-      uart_print(" S:");
-      print_int((int)bcm_in.vehicle_speed);
-      uart_print(" W:");
-      print_int((int)bcm_in.brake_wear_pct);
-      uart_print(" F:");
-      print_int((int)bcm_out.front_hydraulic_pressure);
-      uart_print(" R:");
-      print_int((int)bcm_out.rear_hydraulic_pressure);
-      uart_print(" Lights:");
-      uart_print((bcm_out.status_flag & 0x01) ? "ACTIVE" : "OFF");
-      uart_print(" FLAG:");
-      print_int((int)bcm_out.status_flag);
-      uart_print("\r\n");
+      g_telem_pending = 1;
     }
 
     /* CPU Heartbeat LED toggle every 0.5s */
@@ -243,6 +359,7 @@ int main(void) {
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_USART2_UART_Init();
+  MX_ADC1_Init();
   /* USER CODE BEGIN 2 */
   LL_GPIO_SetPinMode(LD2_GPIO_Port, LD2_Pin, LL_GPIO_MODE_OUTPUT);
   LL_GPIO_SetOutputPin(LD2_GPIO_Port, LD2_Pin);
@@ -267,9 +384,22 @@ int main(void) {
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1) {
-    /* CPU idles here. All logic is in Interrupt Service Routines (ISRs) */
-    __WFI(); /* Wait For Interrupt: Saves power until the next SysTick or UART
-                byte */
+    if (g_telem_pending) {
+      g_telem_pending = 0;
+      TelemetryPayload_t telem;
+      telem.tick = s_tick_count;
+      telem.pedal = bcm_in.pedal_force;
+      telem.speed = bcm_in.vehicle_speed;
+      telem.wear = bcm_in.brake_wear_pct;
+      telem.front = bcm_out.front_hydraulic_pressure;
+      telem.rear = bcm_out.rear_hydraulic_pressure;
+      telem.status_flag = bcm_out.status_flag;
+      telem.chip_temp_c = BCM_ReadChipTemperature_C();
+      BCM_SendFrame(RESP_TELEMETRY, (const uint8_t *)&telem,
+                   (uint8_t)sizeof(telem));
+    }
+    
+    __WFI(); /* Wait For Interrupt */
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -361,6 +491,37 @@ static void MX_USART2_UART_Init(void) {
   /* USER CODE BEGIN USART2_Init 2 */
 
   /* USER CODE END USART2_Init 2 */
+}
+
+/**
+ * @brief ADC1 Initialization Function (internal chip temperature sensor)
+ * @param None
+ * @retval None
+ */
+static void MX_ADC1_Init(void) {
+  /* Peripheral clock enable */
+  LL_APB2_GRP1_EnableClock(LL_APB2_GRP1_PERIPH_ADC1);
+
+  /* ADC clock: PCLK2 (84MHz) / 4 = 21MHz, within the 36MHz ADC max */
+  LL_ADC_SetCommonClock(__LL_ADC_COMMON_INSTANCE(ADC1),
+                        LL_ADC_CLOCK_SYNC_PCLK_DIV4);
+  LL_ADC_SetCommonPathInternalCh(__LL_ADC_COMMON_INSTANCE(ADC1),
+                                 LL_ADC_PATH_INTERNAL_TEMPSENSOR);
+
+  LL_ADC_SetResolution(ADC1, LL_ADC_RESOLUTION_12B);
+  LL_ADC_SetDataAlignment(ADC1, LL_ADC_DATA_ALIGN_RIGHT);
+  LL_ADC_REG_SetTriggerSource(ADC1, LL_ADC_REG_TRIG_SOFTWARE);
+  LL_ADC_REG_SetContinuousMode(ADC1, LL_ADC_REG_CONV_SINGLE);
+  LL_ADC_REG_SetSequencerLength(ADC1, LL_ADC_REG_SEQ_SCAN_DISABLE);
+  LL_ADC_REG_SetSequencerRanks(ADC1, LL_ADC_REG_RANK_1,
+                               LL_ADC_CHANNEL_TEMPSENSOR);
+  /* Temp sensor requires a long sampling time (>= 10us min) */
+  LL_ADC_SetChannelSamplingTime(ADC1, LL_ADC_CHANNEL_TEMPSENSOR,
+                                LL_ADC_SAMPLINGTIME_480CYCLES);
+
+  LL_ADC_Enable(ADC1);
+  /* Let the ADC and temp sensor internal paths stabilize before first read */
+  LL_mDelay(1);
 }
 
 /**

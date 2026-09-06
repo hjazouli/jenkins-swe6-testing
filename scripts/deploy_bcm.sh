@@ -1,21 +1,16 @@
 #!/bin/bash
 set -e
 
-# New Hardened Infrastructure Deployment Script
-# ---------------------------------------------
-# Path to the CubeMX-generated project
-FIRMWARE_DIR="firmware/BCM_Firmware"
-BINARY_PATH="$FIRMWARE_DIR/build/BCM_Firmware.bin"
+# Thin wrapper kept as the stable entry point for Jenkins/muscle memory.
+# All the real logic (build, flash, verify) now lives in flash_bcm.py,
+# which gives us proper stage logging and a post-flash UART sanity check
+# that this script never had.
+cd "$(dirname "$0")/.."
 
-echo "🔨 --- COMPILING HARDENED BCM FIRMWARE ---"
-make -C $FIRMWARE_DIR clean all
+if [ -x ".venv/bin/python3" ]; then
+  PYTHON=".venv/bin/python3"
+else
+  PYTHON="python3"
+fi
 
-echo "⚡ --- FLASHING FIRMWARE TO 0x08000000 ---"
-# We now flash to the base address (0x08000000) as the bootloader is retired
-st-flash --connect-under-reset write $BINARY_PATH 0x08000000
-
-echo "🔄 --- RESETTING BOARD ---"
-st-flash reset
-
-echo "✅ --- DEPLOYMENT SUCCESSFUL ---"
-echo "Note: Firmware running at 115,200 Baud / 84 MHz."
+exec "$PYTHON" scripts/flash_bcm.py "$@"

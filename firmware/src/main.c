@@ -201,6 +201,7 @@ void main(void) {
   bcm_in.brake_temp_celsius = 45.0f;
   bcm_in.vehicle_speed = 60.0f;
 
+  
   uart_print("\r\n--- BCM SYSTICK ONLINE ---\r\n");
 
   while (1) {

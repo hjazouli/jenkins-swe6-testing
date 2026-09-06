@@ -24,7 +24,8 @@ class TestPedalBoundary:
             time.sleep(0.5)
 
         with allure.step("Verify Zero Pressure Output"):
-            data = bcm_target.get_status()
+            response = bcm_target.get_status()
+            data = parse_telemetry(response)
             assert data.get('front', -1) == 0, f"Expected 0 pressure"
         
         Log.test_end("test_zero_pedal")
@@ -39,7 +40,8 @@ class TestPedalBoundary:
             time.sleep(0.5)
 
         with allure.step("Verify 100% State"):
-            data = bcm_target.get_status()
+            response = bcm_target.get_status()
+            data = parse_telemetry(response)
             assert data.get('pedal', 0) == 100, f"Expected 100% pedal"
         
         Log.test_end("test_exact_max")
@@ -54,7 +56,8 @@ class TestPedalBoundary:
             time.sleep(0.5)
 
         with allure.step("Confirm Clamping to 100%"):
-            data = bcm_target.get_status()
+            response = bcm_target.get_status()
+            data = parse_telemetry(response)
             assert data.get('pedal', 0) <= 100, f"ECU failed to clamp"
         
         Log.test_end("test_one_above_max")
@@ -81,7 +84,8 @@ class TestStatusFlags:
             time.sleep(0.5)
 
         with allure.step(f"Verify ABS Active Bit (0x04) is {'Set' if expected_abs else 'Clear'}"):
-            data = bcm_target.get_status()
+            response = bcm_target.get_status()
+            data = parse_telemetry(response)
             flag_val = data.get('flag', 0)
             actual = bool(flag_val & ABS_ACTIVE_BIT)
             assert actual == expected_abs, f"Expected ABS={expected_abs}, got FLAG={hex(flag_val)}"
@@ -94,7 +98,8 @@ class TestStatusFlags:
         bcm_target.set_temp(250.0)
         bcm_target.set_pedal(50.0)
         time.sleep(0.5)
-        data = bcm_target.get_status()
+        response = bcm_target.get_status()
+        data = parse_telemetry(response)
         
         # Overheat Bit is 0x02
         flag_val = data.get('flag', 0)
@@ -110,7 +115,8 @@ class TestStatusFlags:
             time.sleep(0.5)
             
         with allure.step("Verify Wear Bit (0x20) is Set"):
-            data = bcm_target.get_status()
+            response = bcm_target.get_status()
+            data = parse_telemetry(response)
             flag_val = data.get('flag', 0)
             assert (flag_val & BRAKE_WEAR_BIT), f"Expected Wear flag, got {hex(flag_val)}"
             
