@@ -69,14 +69,18 @@ capture_*.asc
 *.hex
 *.bin
 *.map
+
 # Clangd Cache
 .cache/
 
-# Build artifacts
-build/
-*.o
-*.elf
-*.hex
-*.bin
-*.map
-.cache/
+# Telemetry and Test Results
+test_results/
+*.csv
+telemetry_plot.png
+
+# Jenkins remoting agent logs (rotated: remoting.log.0, remoting.log.0.1, ...)
+remoting/logs/
+*.lck
+
+# Local scratch/debug scripts (not part of the project)
+scratch/
