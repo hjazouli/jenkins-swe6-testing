@@ -60,6 +60,9 @@ void BCM_Safety_Check(const BcmInput_t *in, BcmOutput_t *out) {
   /* 5. ABS State Integration */
   uint8_t abs_status = (out->abs_active) ? BCM_FLAG_ABS_ACTIVE : 0x00;
 
-  /* Apply results to status flag */
+  /* Apply results to status flag (clear before OR: these bits must be able
+   * to turn off again once their underlying latch/state clears). */
+  out->status_flag &=
+      (uint8_t)~(BCM_FLAG_THERMAL_FAULT | BCM_FLAG_PLAUS_FAULT | BCM_FLAG_ABS_ACTIVE);
   out->status_flag |= (s_thermal_fault_latch | s_plaus_latch | abs_status);
 }

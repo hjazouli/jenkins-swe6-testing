@@ -6,8 +6,9 @@
 /**
  * @brief Initialize the BCM sequencer and outputs.
  */
-BcmStatus_t BCM_Init(BcmOutput_t* out) {
-  if (out == (void*)0) return BCM_STATUS_ERROR;
+BcmStatus_t BCM_Init(BcmOutput_t *out) {
+  if (out == (void *)0)
+    return BCM_STATUS_ERROR;
 
   out->hydraulic_pressure = 0.0f;
   out->front_hydraulic_pressure = 0.0f;
@@ -15,14 +16,17 @@ BcmStatus_t BCM_Init(BcmOutput_t* out) {
   out->abs_active = 0;
   out->status_flag = 0x00;
 
+  BCM_Hsa_Init();
+
   return BCM_STATUS_OK;
 }
 
 /**
  * @brief Orchestrates the BCM execution sequence.
  */
-BcmStatus_t BCM_Step(const BcmInput_t* in, BcmOutput_t* out) {
-  if ((in == (void*)0) || (out == (void*)0)) return BCM_STATUS_ERROR;
+BcmStatus_t BCM_Step(const BcmInput_t *in, BcmOutput_t *out) {
+  if ((in == (void *)0) || (out == (void *)0))
+    return BCM_STATUS_ERROR;
 
   /* 1. Hardware Monitoring (Stage 3 Entry) */
   if (BCM_HwMon_CheckHardware(in) != BCM_STATUS_OK) {

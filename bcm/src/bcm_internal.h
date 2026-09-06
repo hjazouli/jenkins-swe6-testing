@@ -9,6 +9,7 @@ void BCM_Abs_ApplyModulation(const BcmInput_t* in, BcmOutput_t* out);
 void Bcm_Regen_Calculate(const BcmInput_t* in, BcmOutput_t* out);
 void BCM_Ebd_PerformSplit(const BcmInput_t* in, BcmOutput_t* out);
 void BCM_Hsa_RunStateMachine(const BcmInput_t* in, BcmOutput_t* out);
+void BCM_Hsa_Init(void);
 void BCM_Safety_Check(const BcmInput_t* in, BcmOutput_t* out);
 void BCM_Diag_Update(BcmOutput_t* out);
 BcmStatus_t BCM_HwMon_CheckHardware(const BcmInput_t* in);
