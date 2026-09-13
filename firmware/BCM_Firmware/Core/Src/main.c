@@ -53,17 +53,26 @@ typedef struct __attribute__((packed)) {
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 #define FRAME_START_BYTE 0x7E
-#define FRAME_MAX_PAYLOAD 32
+/* 48 bytes comfortably fits a `git describe --tags --always --dirty` string
+ * (e.g. "v1.0.0-HIL-VALIDATED-12-ga55fe14-dirty" is ~38 chars) for
+ * CMD_GET_VERSION, well above what any other command/response needs. */
+#define FRAME_MAX_PAYLOAD 48
 
-#define CMD_SET_PEDAL 0x01
-#define CMD_SET_SPEED 0x02
-#define CMD_SET_TEMP  0x03
-#define CMD_RESET     0x04
-#define CMD_SET_WEAR  0x05
+#define CMD_SET_PEDAL   0x01
+#define CMD_SET_SPEED   0x02
+#define CMD_SET_TEMP    0x03
+#define CMD_RESET       0x04
+#define CMD_SET_WEAR    0x05
+#define CMD_GET_VERSION 0x06
 
 #define RESP_ACK       0x10
 #define RESP_NACK      0x11
 #define RESP_TELEMETRY 0x20
+#define RESP_VERSION   0x21
+
+#ifndef BCM_SW_VERSION
+#define BCM_SW_VERSION "unknown"
+#endif
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -223,6 +232,21 @@ void BCM_ProcessFrame(uint8_t type, const uint8_t *payload, uint8_t len,
       BCM_Init(&bcm_out);
       BCM_SendFrame(RESP_ACK, (void *)0, 0);
       break;
+    case CMD_GET_VERSION: {
+      /* BCM_SW_VERSION is baked in at compile time (see Makefile) from
+       * `git describe`, so this reports exactly what's flashed - no need to
+       * trust a host-side flash log. sizeof() on a string literal is a
+       * compile-time constant, so the truncation guard (needed because
+       * BCM_SendFrame copies `len` bytes into a FRAME_MAX_PAYLOAD-sized
+       * stack buffer) costs nothing at runtime and dodges the false-positive
+       * -Wstringop-overread that strnlen(..., FRAME_MAX_PAYLOAD) triggers
+       * here (gcc knows the literal is shorter than the bound). */
+      const uint8_t vlen = (sizeof(BCM_SW_VERSION) - 1 < FRAME_MAX_PAYLOAD)
+                                ? (uint8_t)(sizeof(BCM_SW_VERSION) - 1)
+                                : (uint8_t)FRAME_MAX_PAYLOAD;
+      BCM_SendFrame(RESP_VERSION, (const uint8_t *)BCM_SW_VERSION, vlen);
+      break;
+    }
     default:
       BCM_SendFrame(RESP_NACK, (void *)0, 0);
       break;

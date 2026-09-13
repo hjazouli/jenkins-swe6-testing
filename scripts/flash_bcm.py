@@ -29,6 +29,8 @@ from tests.bridge.hardware_bridge import Log, HardwareBridge  # noqa: E402
 FIRMWARE_DIR = REPO_ROOT / "firmware" / "BCM_Firmware"
 BINARY_PATH = FIRMWARE_DIR / "build" / "BCM_Firmware.bin"
 ELF_PATH = FIRMWARE_DIR / "build" / "BCM_Firmware.elf"
+VERSION_PATH = FIRMWARE_DIR / "VERSION"
+CHANGELOG_PATH = FIRMWARE_DIR / "CHANGELOG.md"
 FLASH_ADDRESS = "0x08000000"
 REQUIRED_TOOLS = ("arm-none-eabi-gcc", "st-flash", "st-info")
 POST_RESET_SETTLE_S = 1.0  # give the board a moment before checking UART
@@ -92,6 +94,87 @@ def check_toolchain():
     Log.stage_end("Checking toolchain", ok=True)
 
 
+def _fw_version():
+    """The MAJOR.MINOR.PATCH release number from VERSION — bumped by hand,
+    alongside a CHANGELOG.md entry (see check_changelog_entry)."""
+    return VERSION_PATH.read_text().strip() if VERSION_PATH.exists() else "0.0.0"
+
+
+def _sw_version():
+    """Matches the Makefile's GIT_VERSION exactly: FW_VERSION plus a
+    +<git-hash>[-dirty] build-metadata suffix pinning the exact commit —
+    this is the string baked into the binary via BCM_SW_VERSION and reported
+    live over UART by CMD_GET_VERSION."""
+    git_hash = _run(["git", "rev-parse", "--short", "HEAD"], cwd=str(REPO_ROOT)) or "unknown"
+    dirty = bool(_run(["git", "status", "--porcelain"], cwd=str(REPO_ROOT)))
+    return f"{_fw_version()}+{git_hash}{'-dirty' if dirty else ''}"
+
+
+def _changelog_entry(fw_version):
+    """Returns the bullet lines under `## <fw_version>` in CHANGELOG.md, or
+    None if there's no such heading yet."""
+    if not CHANGELOG_PATH.exists():
+        return None
+    lines = CHANGELOG_PATH.read_text().splitlines()
+    try:
+        start = lines.index(f"## {fw_version}") + 1
+    except ValueError:
+        return None
+    entry = []
+    for line in lines[start:]:
+        if line.startswith("## "):
+            break
+        if line.strip():
+            entry.append(line.strip())
+    return entry or None
+
+
+def check_changelog_entry():
+    """Refuses to flash a version with no matching CHANGELOG.md entry, so
+    every build that reaches hardware has a recorded, human-readable reason
+    for existing — not just a bumped number."""
+    Log.stage_start("Checking changelog entry")
+    fw_version = _fw_version()
+    entry = _changelog_entry(fw_version)
+
+    if entry is None:
+        Log.error(f"No CHANGELOG.md entry for version {fw_version} (VERSION file: {VERSION_PATH}).")
+        Log.error(f"Add a `## {fw_version}` section to {CHANGELOG_PATH} describing this release, then re-run.")
+        Log.stage_end("Checking changelog entry", ok=False)
+        raise SystemExit(1)
+
+    Log.info(f"Version {fw_version}:")
+    for line in entry:  # pylint: disable=not-an-iterable  # unreachable with entry=None, see raise above
+        Log.info(f"  {line}")
+    Log.stage_end("Checking changelog entry", ok=True)
+
+
+def check_currently_flashed_version():
+    """Reads the version the board reports RIGHT NOW, before this run
+    overwrites it — the 'what was on it before' half of flash traceability.
+    Best-effort: a blank/bricked board, or older firmware predating
+    CMD_GET_VERSION, just reports as unknown rather than failing the run —
+    there's nothing actionable to do about either case before flashing."""
+    Log.stage_start("Checking currently-flashed version")
+
+    try:
+        bridge = HardwareBridge()
+    except Exception as e:
+        Log.info(f"Could not open the serial port to check the current version: {e}")
+        Log.stage_end("Checking currently-flashed version", ok=True)
+        return None
+
+    version = bridge.get_version()
+    bridge.close()
+
+    if version:
+        Log.info(f"Board currently reports: {version}")
+    else:
+        Log.info("Board did not respond to CMD_GET_VERSION (blank, or firmware predating this command).")
+    Log.stage_end("Checking currently-flashed version", ok=True)
+    return version
+
+
 def log_binary_details():
     """Logs everything needed to know exactly what's about to be flashed:
     which binary, built from which git commit, with what checksum, and how
@@ -103,10 +186,7 @@ def log_binary_details():
     Log.info(f"Binary:       {BINARY_PATH} ({size_bytes} bytes / {size_bytes / 1024:.1f} KB)")
     Log.info(f"MD5:          {_md5sum(BINARY_PATH)}")
     Log.info(f"Flash target: {FLASH_ADDRESS}")
-
-    commit = _run(["git", "rev-parse", "--short", "HEAD"], cwd=str(REPO_ROOT)) or "unknown"
-    dirty = bool(_run(["git", "status", "--porcelain"], cwd=str(REPO_ROOT)))
-    Log.info(f"Git commit:   {commit}{' (dirty working tree)' if dirty else ''}")
+    Log.info(f"SW version:   {_sw_version()}")
 
     gcc_version = _run(["arm-none-eabi-gcc", "-dumpversion"]) or "unknown"
     Log.info(f"Toolchain:    arm-none-eabi-gcc {gcc_version}")
@@ -134,9 +214,11 @@ def probe_hardware():
     Log.stage_end("Probing ST-Link / target", ok=True)
 
 
-def verify_uart_link():
-    """Opens the serial port and checks whether the board is actually
-    streaming telemetry after the reset — the gap the old script had."""
+def verify_uart_link(expected_version):
+    """Opens the serial port, checks whether the board is actually streaming
+    telemetry after the reset, and asks it for its firmware version (see
+    CMD_GET_VERSION in main.c) to confirm the running board matches what was
+    just built - not just that *something* got written to flash."""
     Log.stage_start("Verifying UART link")
     time.sleep(POST_RESET_SETTLE_S)
 
@@ -148,12 +230,10 @@ def verify_uart_link():
         return False
 
     alive = bool(bridge.protocol.latest_telemetry)
+    reported_version = bridge.get_version() if alive else None
     bridge.close()
 
-    if alive:
-        Log.info("Board is streaming telemetry — UART link confirmed alive.")
-        Log.stage_end("Verifying UART link", ok=True)
-    else:
+    if not alive:
         Log.error(
             "No telemetry received after reset. This is a known ST-Link "
             "SWD-reset quirk (the reset doesn't always restart peripheral "
@@ -161,7 +241,22 @@ def verify_uart_link():
         )
         Log.error("Fix: unplug/replug the board's USB cable, or press its reset button, then re-run this script.")
         Log.stage_end("Verifying UART link", ok=False)
-    return alive
+        return False
+
+    Log.info("Board is streaming telemetry — UART link confirmed alive.")
+    if reported_version is None:
+        Log.error("Board did not respond to CMD_GET_VERSION (old firmware without this command?).")
+        Log.stage_end("Verifying UART link", ok=False)
+        return False
+    if reported_version != expected_version:
+        Log.error(f"Version mismatch: board reports '{reported_version}', expected '{expected_version}'.")
+        Log.error("The board may be running stale firmware from a previous flash — re-run this script.")
+        Log.stage_end("Verifying UART link", ok=False)
+        return False
+
+    Log.info(f"Board firmware version confirmed: {reported_version}")
+    Log.stage_end("Verifying UART link", ok=True)
+    return True
 
 
 def main():
@@ -173,6 +268,9 @@ def main():
     overall_start = time.time()
 
     check_toolchain()
+    check_changelog_entry()
+    previous_version = check_currently_flashed_version()
+
     run_stage("Compiling firmware", ["make", "clean", "all"], cwd=str(FIRMWARE_DIR))
 
     if not BINARY_PATH.exists():
@@ -180,6 +278,7 @@ def main():
         raise SystemExit(1)
 
     log_binary_details()
+    new_version = _sw_version()
     probe_hardware()
     run_stage(
         "Flashing firmware",
@@ -187,9 +286,10 @@ def main():
     )
     run_stage("Resetting board", ["st-flash", "reset"])
 
-    uart_ok = verify_uart_link()
+    uart_ok = verify_uart_link(new_version)
     elapsed = time.time() - overall_start
 
+    Log.info(f"=== FLASH TRACEABILITY: {previous_version or 'unknown'} -> {new_version} ===")
     if uart_ok:
         Log.info(f"=== Deployment successful in {elapsed:.1f}s — firmware flashed and verified live ===")
     else:

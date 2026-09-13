@@ -104,10 +104,24 @@ MCU = $(CPU) -mthumb $(FPU) $(FLOAT-ABI)
 
 # macros for gcc
 # AS defines
-AS_DEFS = 
+AS_DEFS =
+
+# Firmware version string, queryable at runtime over UART (CMD_GET_VERSION) -
+# see main.c. MAJOR.MINOR.PATCH comes from VERSION (bumped by hand, alongside
+# a CHANGELOG.md entry - see CHANGELOG.md for the policy); the git hash is
+# semver build metadata pinning the exact commit that VERSION was built from,
+# with -dirty appended if the working tree had uncommitted changes.
+FW_VERSION = $(shell cat VERSION 2>/dev/null || echo 0.0.0)
+GIT_HASH = $(shell git rev-parse --short HEAD 2>/dev/null || echo unknown)
+GIT_DIRTY = $(shell git status --porcelain 2>/dev/null)
+ifneq ($(strip $(GIT_DIRTY)),)
+GIT_HASH := $(GIT_HASH)-dirty
+endif
+GIT_VERSION = $(FW_VERSION)+$(GIT_HASH)
 
 # C defines
 C_DEFS =  \
+-DBCM_SW_VERSION=\"$(GIT_VERSION)\" \
 -DUSE_FULL_LL_DRIVER \
 -DHSE_VALUE=8000000 \
 -DHSE_STARTUP_TIMEOUT=100 \

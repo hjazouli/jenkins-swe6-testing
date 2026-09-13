@@ -33,10 +33,12 @@ CMD_SET_SPEED = 0x02
 CMD_SET_TEMP = 0x03
 CMD_RESET = 0x04
 CMD_SET_WEAR = 0x05
+CMD_GET_VERSION = 0x06
 
 RESP_ACK = 0x10
 RESP_NACK = 0x11
 RESP_TELEMETRY = 0x20
+RESP_VERSION = 0x21
 
 CMD_NAMES = {
     CMD_SET_PEDAL: "SET_PEDAL",
@@ -44,6 +46,7 @@ CMD_NAMES = {
     CMD_SET_TEMP: "SET_TEMP",
     CMD_RESET: "RESET",
     CMD_SET_WEAR: "SET_WEAR",
+    CMD_GET_VERSION: "GET_VERSION",
 }
 
 # tick(u32), pedal/speed/wear/front/rear(f32 x5), status_flag(u8), chip_temp_c(i32)
@@ -335,6 +338,7 @@ class BcmFrameReader(serial.threaded.Protocol):
     def __init__(self):
         self.transport = None
         self.response_queue = queue.Queue()
+        self.version_queue = queue.Queue()
         self.latest_telemetry = {}
         self.on_telemetry = None  # optional callback(dict), set by the owner
         self._reset_parser()
@@ -389,6 +393,8 @@ class BcmFrameReader(serial.threaded.Protocol):
 
         if frame_type in (RESP_ACK, RESP_NACK):
             self.response_queue.put(frame_type)
+        elif frame_type == RESP_VERSION:
+            self.version_queue.put(payload.decode("ascii", errors="replace"))
         elif frame_type == RESP_TELEMETRY:
             expected_size = struct.calcsize(TELEMETRY_STRUCT)
             if len(payload) != expected_size:
@@ -556,6 +562,25 @@ class HardwareBridge:
 
     def reset(self):
         self._send_command(CMD_RESET)
+
+    def get_version(self):
+        """Asks the board for the firmware version baked in at compile time
+        (see CMD_GET_VERSION in main.c) and returns it as a string, e.g.
+        "v1.0.0-HIL-VALIDATED-3-gA55fe14-dirty". Unlike a flash log, this
+        reflects whatever is *actually running on the board right now* -
+        useful for confirming a board wasn't left on stale firmware."""
+        while not self.protocol.version_queue.empty():
+            self.protocol.version_queue.get()
+
+        self.protocol.write_frame(CMD_GET_VERSION)
+
+        try:
+            version = self.protocol.version_queue.get(timeout=1.5)
+            Log.trace_tx(f"GET_VERSION -> {version}")
+            return version
+        except queue.Empty:
+            Log.error("GET_VERSION -> timeout (no response)")
+            return None
 
     def get_status(self):
         """Returns the most recent telemetry captured by the background reader."""
