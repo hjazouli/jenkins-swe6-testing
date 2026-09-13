@@ -14,8 +14,27 @@ pipeline {
                     if [ ! -d ".venv" ]; then python3 -m venv .venv; fi
                     . .venv/bin/activate
                     pip install --upgrade pip
-                    pip install pytest pyserial allure-pytest pytest-metadata
+                    pip install -r requirements.txt pytest-metadata
                 '''
+            }
+        }
+
+        stage('Lint & Static Analysis') {
+            steps {
+                echo '🔍 Linting Python (pylint) and scanning C for unsafe patterns (flawfinder)...'
+                sh '''
+                    . .venv/bin/activate
+                    PYTHONPATH=. pylint scripts tests --disable=all --enable=E,F \
+                        --init-hook="import sys; sys.path.insert(0, 'tests/functional')"
+                    flawfinder --minlevel=3 --error-level=3 bcm/src firmware/BCM_Firmware/Core/Src
+                '''
+            }
+        }
+
+        stage('Unit Tests & Coverage (C)') {
+            steps {
+                echo '🧩 Running BCM logic unit tests on the host, with coverage...'
+                sh 'make test_unit_coverage'
             }
         }
 
@@ -25,7 +44,7 @@ pipeline {
                 sh 'make -C firmware/BCM_Firmware clean all'
             }
         }
-        
+
         stage('Flash Hardware') {
             steps {
                 echo '⚡ Deploying to Physical Nucleo Board...'
@@ -33,25 +52,28 @@ pipeline {
                 sh './scripts/deploy_bcm.sh'
             }
         }
-        
-        stage('HIL Verification') {
+
+        stage('Functional & System Tests (HIL)') {
             steps {
                 echo '🧪 Executing Industry-Standard HIL Validation...'
                 sh '''
                     . .venv/bin/activate
-                    pytest tests/functional -s -v --alluredir=allure-results --target=hardware
+                    pytest tests/functional -s -v --alluredir=allure-results --junitxml=test-results.xml --target=hardware
                 '''
             }
         }
     }
-    
+
     post {
         always {
+            echo '📋 Publishing JUnit Results...'
+            junit testResults: 'test-results.xml', allowEmptyResults: true
+
             echo '📊 Capturing Allure Results...'
             allure includeProperties: false, jdk: '', results: [[path: 'allure-results']]
-            
+
             echo '🗄️ Archiving Build Artifacts...'
-            archiveArtifacts artifacts: 'firmware/BCM_Firmware/build/BCM_Firmware.bin', allowEmptyArchive: true
+            archiveArtifacts artifacts: 'firmware/BCM_Firmware/build/BCM_Firmware.bin, build/c-coverage.xml, build/c-coverage.html', allowEmptyArchive: true
         }
         success {
             echo '✅ HIL Validation PASSED.'
