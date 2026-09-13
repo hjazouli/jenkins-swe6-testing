@@ -10,7 +10,7 @@
     
     // Terminal Aesthetics & Visibility
     "terminal.integrated.fontFamily": "'0xProto Nerd Font Mono', Menlo, Monaco, monospace",
-    "terminal.integrated.fontSize": 12,
+    "terminal.integrated.fontSize": 14,
     "terminal.integrated.lineHeight": 1.1,
     "terminal.integrated.cursorStyle": "line",
     "terminal.integrated.cursorBlinking": true,
