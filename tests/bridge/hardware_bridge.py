@@ -7,14 +7,26 @@ import logging
 import queue
 from datetime import datetime
 
-SERIAL_PORT = "/dev/tty.usbmodem103"
+SERIAL_PORT = "/dev/tty.usbmodem1103"
 BAUD_RATE = 115200
+
+# tests/bridge/hardware_bridge.py -> repo root (used to show callers' paths
+# relative to the repo instead of a bare module name, e.g.
+# "scripts/monitor_bcm.py" instead of just "monitor_bcm").
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # --- Binary frame protocol -------------------------------------------------
 # Wire format: START(0x7E) TYPE(1) LEN(1) PAYLOAD(LEN) CRC16_LO CRC16_HI
 # Must match firmware/BCM_Firmware/Core/Src/main.c exactly (frame types,
 # struct layout, and CRC algorithm).
 FRAME_START = 0x7E
+
+
+class SerialLinkLost(Exception):
+    """Raised when a frame can't be sent because the serial connection is
+    closed or gone (dropped by the OS, port stolen by another process, cable
+    unplugged, etc.) - callers can catch this specifically instead of
+    getting a bare AttributeError from a None transport."""
 
 CMD_SET_PEDAL = 0x01
 CMD_SET_SPEED = 0x02
@@ -26,8 +38,77 @@ RESP_ACK = 0x10
 RESP_NACK = 0x11
 RESP_TELEMETRY = 0x20
 
+CMD_NAMES = {
+    CMD_SET_PEDAL: "SET_PEDAL",
+    CMD_SET_SPEED: "SET_SPEED",
+    CMD_SET_TEMP: "SET_TEMP",
+    CMD_RESET: "RESET",
+    CMD_SET_WEAR: "SET_WEAR",
+}
+
 # tick(u32), pedal/speed/wear/front/rear(f32 x5), status_flag(u8), chip_temp_c(i32)
 TELEMETRY_STRUCT = "<IfffffBi"
+
+# status_flag bit layout, mirrors bcm/include/bcm_types.h exactly (bits 6-7
+# are a free-running heartbeat counter, not a status bit - see bcm_diag.c).
+FLAG_BRAKE_LIGHT = 0x01
+FLAG_THERMAL_FAULT = 0x02
+FLAG_ABS_ACTIVE = 0x04
+FLAG_HSA_ACTIVE = 0x08
+FLAG_PLAUS_FAULT = 0x10
+FLAG_BRAKE_WEAR = 0x20
+
+_FLAG_NAMES = (
+    (FLAG_THERMAL_FAULT, "THERMAL_FAULT"),
+    (FLAG_PLAUS_FAULT, "PLAUS_FAULT"),
+    (FLAG_ABS_ACTIVE, "ABS_ACTIVE"),
+    (FLAG_HSA_ACTIVE, "HSA_ACTIVE"),
+    (FLAG_BRAKE_WEAR, "BRAKE_WEAR"),
+    (FLAG_BRAKE_LIGHT, "BRAKE_LIGHT"),
+)
+
+
+def active_flag_names(flag: int) -> str:
+    """Comma-joined names of the status bits set in `flag` (heartbeat bits excluded)."""
+    names = [name for mask, name in _FLAG_NAMES if flag & mask]
+    return ",".join(names) if names else "none"
+
+
+# Bits that correspond to a physical actuation the BCM performs in response
+# to input data, as opposed to a pure diagnostic/advisory bit (PLAUS_FAULT,
+# BRAKE_WEAR - those have no distinct actuator output of their own, so they
+# only show up via derive_system_state/Log.state_change, not here).
+# mask -> (actuator name, label when the bit goes 1, label when it goes 0)
+ACTUATOR_BITS = (
+    (FLAG_BRAKE_LIGHT, "Brake light", "ON", "OFF"),
+    (FLAG_ABS_ACTIVE, "ABS modulation", "ENGAGED", "RELEASED"),
+    (FLAG_HSA_ACTIVE, "Hill Start Assist (pressure hold)", "ENGAGED", "RELEASED"),
+    # Thermal fault has a direct physical effect (SWE_REQ_008: hydraulic
+    # pressure gets clamped once latched), so it counts as an actuation too.
+    (FLAG_THERMAL_FAULT, "Thermal safety clamp", "ENGAGED", "RELEASED"),
+)
+
+
+def derive_system_state(flag: int) -> str:
+    """Collapses the raw status_flag byte into one of a small set of
+    high-level system states, ordered by severity so exactly one applies:
+
+        FAULT   - a latched safety fault is active (thermal or plausibility)
+        WARNING - a non-critical advisory is active (brake wear)
+        ACTIVE  - a safety feature is actively intervening (ABS or HSA)
+        NORMAL  - none of the above
+
+    This is a bridge-side view of what is otherwise a scattered bag of
+    independent bits, so the state the system is "in" can be tracked and
+    logged as a state machine instead of raw flag numbers.
+    """
+    if flag & (FLAG_THERMAL_FAULT | FLAG_PLAUS_FAULT):
+        return "FAULT"
+    if flag & FLAG_BRAKE_WEAR:
+        return "WARNING"
+    if flag & (FLAG_ABS_ACTIVE | FLAG_HSA_ACTIVE):
+        return "ACTIVE"
+    return "NORMAL"
 
 
 def crc16_ccitt(data: bytes) -> int:
@@ -56,30 +137,41 @@ def build_frame(frame_type: int, payload: bytes = b"") -> bytes:
 _TAG_COLORS = {
     "INFO": "\033[36m",
     "TX": "\033[34m",
-    "RX": "\033[35m",
     "TELEM": "\033[90m",
     "ERROR": "\033[31m",
+    "STATE": "\033[1m\033[35m",
+    "ACTUATOR": "\033[1m\033[36m",
 }
 
-# Human-readable description shown alongside each tag, e.g. "[TX : transmitting via UART]".
+# Human-readable description shown alongside a tag, e.g. "[TX : Command
+# sent]" — only for tags whose meaning isn't already obvious (INFO/ERROR
+# aren't here on purpose: they don't need explaining).
 _TAG_DESCRIPTIONS = {
-    "INFO": "Information",
-    "TX": "Transmitting via UART",
-    "RX": "Receiving via UART",
+    "TX": "Command sent",
     "TELEM": "Telemetry sample",
-    "ERROR": "Error",
     "VERBOSE": "Verbose output",
     "STAGE_START": "Stage start",
     "STAGE_END": "Stage end",
+    "STATE": "System state transition",
+    "ACTUATOR": "Actuator action",
 }
 
 
 def _tag_and_caller(record, tag):
-    """Builds the shared "[TAG : description] [module.py function : name]" prefix
-    used by both the console and file formatters, so a reader can tell at a
-    glance what kind of event this is and exactly which function logged it."""
-    description = _TAG_DESCRIPTIONS.get(tag, tag.lower())
-    return f"[{tag} : {description}] [{record.module}.py function : {record.funcName}]"
+    """Builds the shared "[TAG] [path/to/file.py function : name]" prefix used
+    by both the console and file formatters, so a reader can tell at a glance
+    what kind of event this is and exactly which function logged it. Tags in
+    _TAG_DESCRIPTIONS get a ": description" suffix; self-explanatory ones
+    (INFO, ERROR) don't. The path is relative to the repo root (e.g.
+    "scripts/monitor_bcm.py"), not just the bare module name, so files with
+    the same module name in different directories stay unambiguous."""
+    description = _TAG_DESCRIPTIONS.get(tag)
+    tag_part = f"[{tag} : {description}]" if description else f"[{tag}]"
+    try:
+        rel_path = os.path.relpath(record.pathname, _REPO_ROOT)
+    except ValueError:
+        rel_path = record.pathname
+    return f"{tag_part} [{rel_path} function : {record.funcName}]"
 
 
 class _ConsoleFormatter(logging.Formatter):
@@ -98,10 +190,15 @@ class _ConsoleFormatter(logging.Formatter):
         if tag == "STAGE_END":
             color = "\033[1m\033[31m" if "FAILED" in message else "\033[1m\033[32m"
             return f"{color}<<< {message}\033[0m\n"
-
         ts = f"{self.formatTime(record, '%H:%M:%S')}.{int(record.msecs):03d}"
         color = _TAG_COLORS.get(tag, "")
         prefix = _tag_and_caller(record, tag)
+
+        if tag == "STATE":
+            return f"{color}\n{ts} {prefix} *** {message} ***\033[0m"
+        if tag == "ACTUATOR":
+            return f"{color}{ts} {prefix} >>> {message}\033[0m"
+
         return f"{color}{ts} {prefix}\033[0m {message}"
 
 
@@ -158,10 +255,6 @@ class Log:
         _logger.info(msg, extra={"tag": "TX"}, stacklevel=2)
 
     @staticmethod
-    def trace_rx(msg):
-        _logger.info(msg, extra={"tag": "RX"}, stacklevel=2)
-
-    @staticmethod
     def debug(msg):
         # Telemetry spam: drops out automatically if the logger level is raised above DEBUG.
         _logger.debug(msg, extra={"tag": "TELEM"}, stacklevel=2)
@@ -193,6 +286,30 @@ class Log:
     @staticmethod
     def error(msg):
         _logger.error(msg, extra={"tag": "ERROR"}, stacklevel=2)
+
+    @staticmethod
+    def actuator(name, action, front=None, rear=None, pedal=None, speed=None, tick=None):
+        # Always logged at INFO, same reasoning as state_change: an actuator
+        # edge is a discrete, rare, meaningful event - it belongs on the
+        # console, not buried in per-sample TELEM debug spam.
+        tick_part = f" tick={tick}" if tick is not None else ""
+        detail = (
+            f" [front={front:.1f} bar rear={rear:.1f} bar pedal={pedal:.1f}% speed={speed:.1f}km/h]"
+            if front is not None else ""
+        )
+        _logger.info(f"{name} -> {action}{tick_part}{detail}", extra={"tag": "ACTUATOR"}, stacklevel=2)
+
+    @staticmethod
+    def state_change(old_state, new_state, flag, tick=None):
+        # Always logged at INFO (unlike the per-sample TELEM/debug spam), since
+        # a state transition is rare and exactly the kind of event worth
+        # seeing on the console without wading through raw telemetry.
+        tick_part = f" tick={tick}" if tick is not None else ""
+        _logger.info(
+            f"{old_state} -> {new_state}{tick_part} [flag=0x{flag:02X} {active_flag_names(flag)}]",
+            extra={"tag": "STATE"},
+            stacklevel=2,
+        )
 
 
 class BcmFrameReader(serial.threaded.Protocol):
@@ -285,9 +402,15 @@ class BcmFrameReader(serial.threaded.Protocol):
             }
             self.latest_telemetry = d
             if self.on_telemetry:
-                self.on_telemetry(d)
+                self.on_telemetry(d)  # pylint: disable=not-callable  # guarded by the `if`; pylint sees only the None init
 
     def write_frame(self, frame_type: int, payload: bytes = b""):
+        if self.transport is None:
+            raise SerialLinkLost(
+                "Cannot send frame - serial connection is closed (lost or "
+                "taken by another process). Check nothing else has the port "
+                "open, then restart."
+            )
         self.transport.write(build_frame(frame_type, payload))
 
 
@@ -316,6 +439,23 @@ class HardwareBridge:
         self.csv_file.write("Mac_Time,ECU_Tick,Pedal_pct,Speed_kmh,Wear_pct,Front_bar,Rear_bar,Lights,Flags,Chip_Temp_C\n")
         self.csv_file.flush()
         Log.info(f"Telemetry logging started: {self.csv_filename}")
+
+        # Durable record of the system-state machine (see derive_system_state):
+        # one row per transition, not per sample, so it stays readable even
+        # over a long run.
+        self.state_log_filename = os.path.join(HardwareBridge._session_dir, f"state_transitions_{time_suffix}.csv")
+        self.state_log_file = open(self.state_log_filename, "w")
+        self.state_log_file.write("Mac_Time,ECU_Tick,Old_State,New_State,Flags,Active_Flags\n")
+        self.state_log_file.flush()
+        self._system_state = None
+
+        # Durable record of actuator edges (see ACTUATOR_BITS): one row per
+        # physical action taken in response to input data, not per sample.
+        self.actuator_log_filename = os.path.join(HardwareBridge._session_dir, f"actuator_events_{time_suffix}.csv")
+        self.actuator_log_file = open(self.actuator_log_filename, "w")
+        self.actuator_log_file.write("Mac_Time,ECU_Tick,Actuator,Action,Front_bar,Rear_bar,Pedal_pct,Speed_kmh\n")
+        self.actuator_log_file.flush()
+        self._prev_flag = None
 
         # Start the background reader thread (serial.threaded owns the thread
         # lifecycle and byte-buffering; BcmFrameReader just reacts to frames)
@@ -350,16 +490,41 @@ class HardwareBridge:
         self.csv_file.flush()
 
         flag = int(d.get('flag', 0))
+        tick = d.get('t', 0)
         Log.debug(
-            f"tick={d.get('t', 0)} pedal={d.get('p', 0)} speed={d.get('s', 0)} "
+            f"tick={tick} pedal={d.get('p', 0)} speed={d.get('s', 0)} "
             f"wear={d.get('w', 0)} front={d.get('f', 0)} rear={d.get('r', 0)} "
             f"lights={l_val} flag=0x{flag:02X} chip_c={d.get('chip_c', 0)}"
         )
 
+        new_state = derive_system_state(flag)
+        if new_state != self._system_state:
+            old_state = self._system_state or "INITIAL"
+            Log.state_change(old_state, new_state, flag, tick=tick)
+            self.state_log_file.write(f"{ts},{tick},{old_state},{new_state},{flag},{active_flag_names(flag)}\n")
+            self.state_log_file.flush()
+            self._system_state = new_state
+
+        if self._prev_flag is not None:
+            changed_bits = flag ^ self._prev_flag
+            for mask, name, on_label, off_label in ACTUATOR_BITS:
+                if changed_bits & mask:
+                    action = on_label if (flag & mask) else off_label
+                    front, rear = d.get('f', 0), d.get('r', 0)
+                    pedal, speed = d.get('p', 0), d.get('s', 0)
+                    Log.actuator(name, action, front=front, rear=rear, pedal=pedal, speed=speed, tick=tick)
+                    self.actuator_log_file.write(f"{ts},{tick},{name},{action},{front},{rear},{pedal},{speed}\n")
+                    self.actuator_log_file.flush()
+        self._prev_flag = flag
+
     def _send_command(self, frame_type: int, value: float = None):
-        """Sends a framed command and waits for ACK/NACK from the background reader."""
+        """Sends a framed command and waits for ACK/NACK from the background
+        reader, logging the send and the result as a single line (rather
+        than separate TX/RX lines) to keep command traffic readable over a
+        long session."""
         payload = struct.pack("<f", value) if value is not None else b""
-        Log.trace_tx(f"type=0x{frame_type:02X} payload={payload.hex()}")
+        name = CMD_NAMES.get(frame_type, f"0x{frame_type:02X}")
+        label = f"{name}({value})" if value is not None else name
 
         # Clear queue of any stale ACKs
         while not self.protocol.response_queue.empty():
@@ -371,11 +536,11 @@ class HardwareBridge:
         try:
             response = self.protocol.response_queue.get(timeout=1.5)
             if response == RESP_ACK:
-                Log.trace_rx("ACK")
+                Log.trace_tx(f"{label} -> ACK")
             else:
-                Log.error(f"NACK received for command 0x{frame_type:02X} (bad CRC?)")
+                Log.error(f"{label} -> NACK (bad CRC?)")
         except queue.Empty:
-            Log.error(f"Command 0x{frame_type:02X} timeout (No ACK)")
+            Log.error(f"{label} -> timeout (No ACK)")
 
     def set_pedal(self, force: float):
         self._send_command(CMD_SET_PEDAL, force)
@@ -404,3 +569,9 @@ class HardwareBridge:
         if hasattr(self, "csv_file") and self.csv_file:
             Log.info("Stopping telemetry logging.")
             self.csv_file.close()
+
+        if hasattr(self, "state_log_file") and self.state_log_file:
+            self.state_log_file.close()
+
+        if hasattr(self, "actuator_log_file") and self.actuator_log_file:
+            self.actuator_log_file.close()
