@@ -11,6 +11,15 @@ pinning the exact commit, e.g. `1.1.0+a55fe14` (`-dirty` appended if the
 working tree had uncommitted changes at build time) — queryable live from any
 board over UART via `CMD_GET_VERSION`.
 
+## 1.2.0
+- Wire the Nucleo's onboard B1 button and LD2 LED into the BCM as a real
+  physical brake-pedal input and brake-light output, alongside the existing
+  UART-driven simulation. Holding B1 forces a full (100%) pedal reading
+  (releasing it does not reset pedal_force to 0, so UART/CMD_SET_PEDAL
+  control is undisturbed whenever B1 isn't physically held); LD2 now mirrors
+  FLAG_BRAKE_LIGHT exactly like a real brake light instead of blinking as a
+  generic heartbeat.
+
 ## 1.1.0
 - Add `CMD_GET_VERSION` / `RESP_VERSION` so the board reports its own
   compiled-in firmware version over UART. `flash_bcm.py` now checks the

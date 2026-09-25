@@ -334,6 +334,15 @@ void BCM_Periodic_Task(void) {
 
   /* Run BCM Logic Step @ 100Hz (every 10ms) */
   if (s_tick_count % 10 == 0) {
+    /* Physical brake-pedal input: B1 (PC13, active LOW, Nucleo's own
+     * hardware pull-up) forces a full panic-stop reading while held. Only
+     * touches pedal_force when pressed - releasing it does *not* reset to
+     * 0, so UART-driven commands (CMD_SET_PEDAL, drive-cycle scripts) keep
+     * working exactly as before whenever the button isn't physically held. */
+    if (!LL_GPIO_IsInputPinSet(B1_GPIO_Port, B1_Pin)) {
+      bcm_in.pedal_force = 100.0f;
+    }
+
     BCM_Step(&bcm_in, &bcm_out);
 
     /* Trigger Telemetry Report @ 10Hz (every 100ms) */
@@ -341,9 +350,13 @@ void BCM_Periodic_Task(void) {
       g_telem_pending = 1;
     }
 
-    /* CPU Heartbeat LED toggle every 0.5s */
-    if (s_tick_count % 500 == 0) {
-      LL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
+    /* Physical brake-light output: LD2 mirrors FLAG_BRAKE_LIGHT exactly
+     * like a real brake light - driven by the same status flag reported
+     * over UART, not a heartbeat blink. */
+    if (bcm_out.status_flag & BCM_FLAG_BRAKE_LIGHT) {
+      LL_GPIO_SetOutputPin(LD2_GPIO_Port, LD2_Pin);
+    } else {
+      LL_GPIO_ResetOutputPin(LD2_GPIO_Port, LD2_Pin);
     }
   }
 }
